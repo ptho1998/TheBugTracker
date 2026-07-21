@@ -1,0 +1,224 @@
+﻿@page "/tickets/create"
+@attribute [Authorize]
+@inject ITicketDTOService TicketService
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Submit a Ticket | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    <MudPaper Class="p-3">
+        <MudText Typo="Typo.h5" GutterBottom>
+            Submit a New Ticket
+        </MudText>
+
+        <EditForm Model="ticket"
+                  class="vstack gap-3"
+                  OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            @* title (input) *@
+            <MudTextField @bind-Value="ticket.Title"
+                          For="() => ticket.Title"
+                          Label="Title"
+                          Variant="Variant.Outlined" />
+
+            @* description (textarea) *@
+            <MudTextField @bind-Value="ticket.Description"
+                          For="() => ticket.Description"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Lines="5"
+                          MaxLines="15"
+                          Sizing="InputSizing.Auto" />
+
+            @* project (select) *@
+            <MudSelect @bind-Value="ticket.ProjectId"
+                       @bind-Value:after="HandleProjectChange"
+                       For="() => ticket.ProjectId"
+                       Label="Project"
+                       Variant="Variant.Outlined">
+                <MudSelectItem Value="0">
+                    Select a Project
+                </MudSelectItem>
+                @foreach(ProjectDTO project in projects)
+                {
+                    <MudSelectItem Value="project.Id">
+                        @project.Name
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            @* submitter | developer (select) *@
+            <div class="hstack flex-wrap gap-3 align-items-start">
+                <MudSelect Value="@(userInfo?.UserId)"
+                           For="() => ticket.SubmitterUserId"
+                           Label="Submitter"
+                           Variant="Variant.Outlined"
+                           Disabled>
+                    <MudSelectItem Value="@(userInfo?.UserId)">
+                        @userInfo?.FullName
+                    </MudSelectItem>
+                </MudSelect>
+
+                <MudSelect @bind-Value="ticket.DeveloperUserId"
+                           For="() => ticket.DeveloperUserId"
+                           Label="Developer"
+                           Variant="Variant.Outlined"
+                           Disabled="@(developers.Count() == 0 || !canUserAssignTicket)"
+                           Placeholder="@(developers.Any() ? "Select a Developer" : "No developers available")">
+                    @foreach (UserDTO developer in developers)
+                    {
+                        <MudSelectItem Value="@developer.Id">
+                            @developer.FullName
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+
+            @* type (chips) *@
+            <div>
+                <MudField Variant="Variant.Outlined" Label="Ticket Type">
+                    <MudChipSet T="TicketType" @bind-SelectedValue="ticket.Type" CheckMark="true">
+                        @foreach (TicketType type in Enum.GetValues<TicketType>())
+                        {
+                            <MudChip T="TicketType" Value="type" Color="type.GetColor()" Text="@type.GetDisplayName()" />
+                        }
+                    </MudChipSet>
+                </MudField>
+                <ValidationMessage For="() => ticket.Type" />
+            </div>
+
+            @* priority (chips) *@
+            <div>
+                <MudField Variant="Variant.Outlined" Label="Priority">
+                    <MudChipSet T="TicketPriority" @bind-SelectedValue="ticket.Priority" CheckMark>
+                        @foreach (TicketPriority priority in Enum.GetValues<TicketPriority>())
+                        {
+                            <MudChip T="TicketPriority" Value="priority" Color="priority.GetColor()" Text="@priority.GetDisplayName()" />
+                        }
+                    </MudChipSet>
+                </MudField>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <MudButton Variant="Variant.Text"
+                           Href="tickets"
+                           StartIcon="@Icons.Material.Filled.ArrowBack">
+                    Back to Tickets
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           ButtonType="ButtonType.Submit">
+                    Submit
+                </MudButton>
+            </div>
+
+         </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private static readonly List<BreadcrumbItem> breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Tickets", href: "/tickets"),
+        new BreadcrumbItem("Submit a Ticket", href: null, disabled: true)
+    };
+
+    private TicketDTO ticket = new();
+    private IEnumerable<ProjectDTO> projects = [];
+    private IEnumerable<UserDTO> developers = [];
+    bool canUserAssignTicket = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        ticket.SubmitterUserId = userInfo!.UserId;
+        ticket.Created = DateTime.UtcNow;
+        ticket.Status = TicketStatus.New;
+
+        try
+        {
+            projects = await ProjectService.GetProjectAsync(userInfo);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load available projects", Severity.Error);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (!canUserAssignTicket)
+        {
+            ticket.DeveloperUserId = null;
+        }
+
+        try
+        {
+            ticket = await TicketService.CreateTicketAsync(ticket, userInfo!);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An unexpected error occurred submitting your ticket!", Severity.Error);
+        }
+
+        if (ticket.Id > 0)
+        {
+            Snackbar.Add("Ticket Submitted succesfully!", Severity.Success);
+            Nav.NavigateTo($"tickets/{ticket.Id}");
+        }
+    }
+
+    private async Task HandleProjectChange()
+    {
+        if(ticket.ProjectId == 0)
+        {
+            ticket.DeveloperUserId = null;
+            developers = [];
+
+            return;
+        }
+
+        try
+        {
+            UserDTO? projectManager = await ProjectService.GetProjectManagerAsync(ticket.ProjectId, userInfo!);
+            if (userInfo!.IsInRole(Role.Admin) || projectManager?.Id == userInfo!.UserId)
+            {
+                canUserAssignTicket = true;
+            }
+            else
+            {
+                canUserAssignTicket = false;
+                ticket.DeveloperUserId = null;
+            }
+
+            IEnumerable<UserDTO> projectMembers = await ProjectService.GetProjectMembersAsync(ticket.ProjectId, userInfo!);
+            developers = projectMembers.Where(m => m.Role == Role.Developer);
+
+            if (!developers.Any(d => d.Id == ticket.DeveloperUserId))
+            {
+                ticket.DeveloperUserId = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load developers for the selected project", Severity.Warning);
+        }
+    }
+}

@@ -1,0 +1,531 @@
+﻿@page "/tickets/{id:int}"
+@attribute [Authorize]
+@inject ITicketDTOService TicketService
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+@if(ticket is not null)
+{
+    <PageTitle>@ticket.Title | The Bug Tracker</PageTitle>
+
+    <MudContainer MaxWidth="MaxWidth.Large">
+        <MudBreadcrumbs Items="breadcrumbs" />
+
+        <div class="vstack gap-3">
+            @* ticket title / archive indicator / ticket dates *@
+            <MudPaper Class="p-3">
+                <div class="d-flex">
+                    <MudText Typo="Typo.h5" GutterBottom Class="me-auto">
+                        @ticket.Title
+                    </MudText>
+
+                    @if (ticket.Archived)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error">
+                            Archived
+                        </MudChip>
+                    }
+                </div>
+                <div>
+                    <MudText Typo="Typo.subtitle2" Inline="true">
+                        Submitted @ticket.Created.ToString("g")
+                    </MudText>
+                    @if (ticket.Updated.HasValue)
+                    {
+                        <span>&bull;</span>
+                        <MudText Typo="Typo.subtitle2" Inline>
+                            Updated @ticket.Updated.Value.ToString("g")
+                        </MudText>
+                    }
+                </div>
+            </MudPaper>
+
+            @* ticket submitter / developer *@
+            <div class="row row-cols-1 row-cols-sm-2 g-3">
+                <div class="col">
+                    <MudPaper Class="p-3 h-100">
+                        <MudText Typo="Typo.h6">Submitted By:</MudText>
+                        <UserCard User="ticket.SubmitterUser" />
+                    </MudPaper>
+                </div>
+                <div class="col">
+                    <MudPaper Class="p-3 h-100">
+                        <MudText Typo="Typo.h6">Assigned To:</MudText>
+                        <div class="d-flex align-items-center">
+                            @if(assigningDeveloper == false)
+                            {
+                                <UserCard User="ticket.DeveloperUser"
+                                            PlaceholderName="Unassigned"
+                                            PlaceholderRole="@Role.Developer.GetDisplayName()" />
+                                @if (userCanEditTicket)
+                                {
+                                    <AuthorizeView Roles="@($"{nameof(Role.Admin)}, {nameof(Role.ProjectManager)}")">
+                                        <MudIconButton Class="ms-auto"
+                                                        Icon="@Icons.Material.Filled.Edit" 
+                                                        OnClick="() => assigningDeveloper = true"/>
+                                    </AuthorizeView>
+                                }
+                            }
+                            else
+                            {
+                                <MudSelect @bind-Value="ticket.DeveloperUserId"
+                                           Label="Developer"
+                                           Variant="Variant.Outlined"
+                                           Placeholder="@(developers.Any() ? "Select a Developer" : "No developer available")"
+                                           Disabled="developers.Count() == 0"
+                                           Clearable>
+                                    @foreach (var developer in developers)
+                                    {
+                                        <MudSelectItem Value="@developer.Id">
+                                            @developer.FullName
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+
+                                @if (developers.Any())
+                                {
+                                    <MudIconButton Class="ms-auto"
+                                                   Icon="@Icons.Material.Filled.Save"
+                                                   Color="Color.Success"
+                                                   OnClick="UpdateTicket" />
+                                }
+                                <MudIconButton Class="ms-auto"
+                                                Icon="@Icons.Material.Filled.Cancel"
+                                                Color="Color.Error"
+                                                OnClick="() => assigningDeveloper = false" />
+                            }
+                        </div>
+                    </MudPaper>
+                </div>
+            </div>
+
+            @* priority / status / type *@
+            <div class="row row-cols-1 row-cols-md-3 g-3">
+                <div class="col">
+                    <MudPaper Class="p-3 h-100 d-flex justify-content-between align-items-center">
+                        <MudText Typo="Typo.h6">
+                            Priority
+                        </MudText>
+                        @if (userCanEditTicket)
+                        {
+                            <MudMenu Dense="true">
+                                <ActivatorContent>
+                                    <MudChip T="string"
+                                             Label="true"
+                                             Color="ticket.Priority.GetColor()"
+                                             Icon="@Icons.Material.Filled.ArrowDropDown"
+                                             OnClick="@context.ToggleAsync">
+                                        @ticket.Priority.GetDisplayName()
+                                    </MudChip>
+                                </ActivatorContent>
+                                <ChildContent>
+                                    @foreach (TicketPriority priority in Enum.GetValues<TicketPriority>())
+                                    {
+                                        <MudMenuItem Class="text-center"  
+                                                     OnClick="@(() => SetTicketPriority(priority))">
+                                            <MudChip T="string" Label="true" Color="priority.GetColor()">
+                                                @priority.GetDisplayName()
+                                            </MudChip>
+                                        </MudMenuItem>
+                                    }
+                                </ChildContent>
+                            </MudMenu>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Label="true" Color="ticket.Priority.GetColor()">
+                                @ticket.Priority.GetDisplayName()
+                            </MudChip>
+                        }
+                    </MudPaper>
+                </div>
+                <div class="col">
+                    <MudPaper Class="p-3 h-100 d-flex justify-content-between align-items-center">
+                        <MudText Typo="Typo.h6">
+                            Status
+                        </MudText>
+                        @if (userCanEditTicket)
+                        {
+                            <MudMenu Dense="true">
+                                <ActivatorContent>
+                                    <MudChip T="string"
+                                             Label="true"
+                                             Color="ticket.Status.GetColor()"
+                                             Icon="@Icons.Material.Filled.ArrowDropDown"
+                                             OnClick="@context.ToggleAsync">
+                                        @ticket.Status.GetDisplayName()
+                                    </MudChip>
+                                </ActivatorContent>
+                                <ChildContent>
+                                    @foreach (TicketStatus status in Enum.GetValues<TicketStatus>())
+                                    {
+                                        <MudMenuItem Class="text-center" 
+                                                     OnClick="@(() => SetTicketStatus(status))">
+                                            <MudChip T="string" Label="true" Color="status.GetColor()">
+                                                @status.GetDisplayName()
+                                            </MudChip>
+                                        </MudMenuItem>
+                                    }
+                                </ChildContent>
+                            </MudMenu>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Label="true" Color="ticket.Status.GetColor()">
+                                @ticket.Status.GetDisplayName()
+                            </MudChip>
+                        }
+
+                    </MudPaper>
+                </div>
+                <div class="col">
+                    <MudPaper Class="p-3 h-100 d-flex justify-content-between align-items-center">
+                        <MudText Typo="Typo.h6">
+                            Type
+                        </MudText>
+                        @if (userCanEditTicket)
+                        {
+                            <MudMenu Dense="true">
+                                <ActivatorContent>
+                                    <MudChip T="string"
+                                             Label="true"
+                                             Color="ticket.Type.GetColor()"
+                                             Icon="@Icons.Material.Filled.ArrowDropDown"
+                                             OnClick="@context.ToggleAsync">
+                                        @ticket.Type.GetDisplayName()
+                                    </MudChip>
+                                </ActivatorContent>
+                                <ChildContent>
+                                    @foreach (TicketType type in Enum.GetValues<TicketType>())
+                                    {
+                                        <MudMenuItem Class="text-center"
+                                                     OnClick="@(() => SetTicketType(type))">
+                                            <MudChip T="string" Label="true" Color="type.GetColor()">
+                                                @type.GetDisplayName()
+                                            </MudChip>
+                                        </MudMenuItem>
+                                    }
+                                </ChildContent>
+                            </MudMenu>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Label="true" Color="ticket.Type.GetColor()">
+                                @ticket.Type.GetDisplayName()
+                            </MudChip>
+                        }
+
+                    </MudPaper>
+                </div>
+            </div>
+
+            @* description *@
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h6" GutterBottom>Description</MudText>
+                <MudText Typo="Typo.body1">@ticket.Description</MudText>
+            </MudPaper>
+
+            @* comment *@
+            <TicketCommentArea Comments="ticket.Comments"
+                               CanComment="userCanEditTicket && !ticket.Archived" 
+                               OnAdd="HandleAddComment"
+                               OnEdit="HandleEditComment"
+                               OnDelete="HandleDeleteComment"/>
+
+            @* controls *@
+            <div class="d-flex">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Class="me-auto"
+                           Href="@($"projects/{ticket.ProjectId}")">
+                    Back to Project
+                </MudButton>
+
+                @if (userCanEditTicket)
+                {
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               Href="@($"/tickets/{ticket.Id}/edit")">
+                        Edit
+                    </MudButton>
+                    @if (ticket.Archived)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.RestoreFromTrash"
+                                   Color="Color.Success"
+                                   OnClick="HandleToggleArchive">
+                            Restore
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   OnClick="HandleToggleArchive">
+                            Archived
+                        </MudButton>
+                    }
+                }
+            </div>
+
+        </div>
+    </MudContainer>
+
+    @if (userCanEditTicket)
+    {
+        <MudMessageBox @ref="archiveConfirmationBox" 
+                       Title="@(ticket.Archived ? "Restore Ticket" : "Archive Ticket")"
+                       CancelText="Cancel">
+            <MessageContent>
+                Are you sure you want to @(ticket.Archived ? "restore" : "archive") this ticket?
+            </MessageContent>
+            <YesButton>
+                @if (ticket.Archived)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.RestoreFromTrash"
+                               Class="ms-2">
+                        Restore
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Delete"
+                               Class="ms-2">
+                        Archive
+                    </MudButton>
+                }
+            </YesButton>
+        </MudMessageBox>
+    }
+}
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private TicketDTO? ticket;
+
+    private bool userCanEditTicket = false;
+
+    private bool assigningDeveloper = false;
+
+    private IEnumerable<UserDTO> developers = [];
+
+    private MudMessageBox? archiveConfirmationBox;
+
+    private List<BreadcrumbItem> breadcrumbs = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        try
+        {
+            ticket = await TicketService.GetTicketByIdAsync(Id, userInfo!);
+
+            if (ticket is not null)
+            {
+                breadcrumbs = [new BreadcrumbItem("Home", href: "/")];
+
+                if (ticket.Project is null)
+                {
+                    breadcrumbs.Add(new BreadcrumbItem("Tickets", href: "/tickets"));
+                    if (ticket.Archived) breadcrumbs.Add(new BreadcrumbItem("Archive", href: "/tickets/archive"));
+                }
+                else
+                {
+                    breadcrumbs.Add(new BreadcrumbItem("Projects", href: "/projects"));
+                    breadcrumbs.Add(new BreadcrumbItem(ticket.Project.Name!, href: $"/projects/{ticket.ProjectId}"));
+                }
+
+                breadcrumbs.Add(new BreadcrumbItem(ticket.Title!, href: null, disabled: true));
+
+                UserDTO? projectManager = await ProjectService.GetProjectManagerAsync(ticket.ProjectId, userInfo!);
+
+                userCanEditTicket = ticket.SubmitterUserId == userInfo!.UserId
+                    || ticket.DeveloperUserId == userInfo.UserId
+                    || userInfo.IsInRole(Role.Admin)
+                    || projectManager?.Id == userInfo.UserId;
+
+                var members = await ProjectService.GetProjectMembersAsync(ticket.ProjectId, userInfo!);
+                developers = members.Where(m => m.Role == Role.Developer);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load the requested ticket", Severity.Error);
+        }
+
+        if (ticket is null)
+        {
+            Nav.NavigateTo("tickets");
+        }
+    }
+
+    private async Task HandleToggleArchive()
+    {
+        if (userCanEditTicket && archiveConfirmationBox is not null)
+        {
+            bool? confirmed = await archiveConfirmationBox.ShowAsync();
+
+            if (confirmed == true)
+            {
+                try
+                {
+                    if (ticket!.Archived)
+                    {
+                        await TicketService.RestoreTicketAsync(ticket.Id, userInfo!);
+                        Snackbar.Add("Ticket restored!", Severity.Success);
+                    }
+                    else
+                    {
+                        await TicketService.ArchiveTicketAsync(ticket.Id, userInfo!);
+                        Snackbar.Add("Ticket archived!", Severity.Success);
+                    }
+
+                    ticket = await TicketService.GetTicketByIdAsync(ticket.Id, userInfo!);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    Snackbar.Add("An error occurred updating this ticket", Severity.Error);
+                }
+            }
+        }
+    }
+
+    private async Task UpdateTicket()
+    {
+        if (userCanEditTicket == false)
+        {
+            return;
+        }
+
+        try
+        {
+            await TicketService.UpdateTicketAsync(ticket!, userInfo!);
+            Snackbar.Add("Changes Saved", Severity.Success);
+
+            await OnParametersSetAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to save changes", Severity.Error);
+        }
+
+        assigningDeveloper = false;
+    }
+
+    private async Task SetTicketPriority(TicketPriority priority)
+    {
+        if (userCanEditTicket && ticket is not null && ticket.Priority != priority)
+        {
+            ticket.Priority = priority;
+            await UpdateTicket();
+        }
+    }
+
+    private async Task SetTicketStatus(TicketStatus status)
+    {
+        if (userCanEditTicket && ticket is not null && ticket.Status != status)
+        {
+            ticket.Status = status;
+            await UpdateTicket();
+        }
+    }
+
+    private async Task SetTicketType(TicketType type)
+    {
+        if (userCanEditTicket && ticket is not null && ticket.Type != type)
+        {
+            ticket.Type = type;
+            await UpdateTicket();
+        }
+    }
+
+    private async Task HandleAddComment(TicketCommentDTO comment)
+    {
+        if (ticket is null || ticket.Archived || !userCanEditTicket)
+        {
+            return;
+        }
+
+        comment.TicketId = Id;
+        comment.UserId = userInfo!.UserId;
+        comment.Created = DateTimeOffset.UtcNow;
+
+        try
+        {
+            await TicketService.CreateCommentAsync(comment, userInfo!);
+            Snackbar.Add("Comment successfully submitted", Severity.Success);
+
+            ticket = await TicketService.GetTicketByIdAsync(ticket.Id, userInfo);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to submit comment", Severity.Error);
+        }
+    }
+
+    private async Task HandleEditComment(TicketCommentDTO comment)
+    {
+        if (comment.UserId != userInfo?.UserId)
+        {
+            return;
+        }
+
+        try
+        {
+            await TicketService.UpdateCommentAsync(comment, userInfo!);
+
+            ticket = await TicketService.GetTicketByIdAsync(Id, userInfo!);
+
+            Snackbar.Add("Comment updated successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to update comment", Severity.Error);
+        }
+    }
+
+    private async Task HandleDeleteComment(int commentId)
+    {
+        TicketCommentDTO? comment = ticket?.Comments.FirstOrDefault(c => c.Id == commentId);
+
+        if (comment is null || (comment.UserId != userInfo!.UserId && userInfo.IsInRole(Role.Admin) == false))
+        {
+            return;
+        }
+
+        try
+        {
+            await TicketService.DeleteCommentAsync(commentId, userInfo!);
+
+            ticket = await TicketService.GetTicketByIdAsync(Id, userInfo);
+
+            Snackbar.Add("Comment deleted", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to delete comment", Severity.Error);
+        }
+    }
+}

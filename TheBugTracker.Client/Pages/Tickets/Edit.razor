@@ -1,0 +1,261 @@
+﻿@page "/tickets/{id:int}/edit"
+@attribute [Authorize]
+@inject ITicketDTOService TicketService
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    @if (loading)
+    {
+        <PageTitle>Edit Ticket | The Bug Tracker</PageTitle>
+        <LoadingSpinner Message="Loading ticket ... " />
+    }
+    else if (ticket is null)
+    {
+        <PageTitle>Not Found | The Bug Tracker</PageTitle>
+
+        <div class="h-100 d-flex flex-column gap-2 align-items-center justify-content-center">
+            <MudText Color="Color.Tertiary" Typo="Typo.button">
+                Ticket Not Found
+            </MudText>
+            <MudButton Variant="Variant.Text"
+                       Href="tickets"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Size="Size.Small">
+                Back to Tickets
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <PageTitle>Edit '@ticket.Title' | The Bug Tracker</PageTitle>
+
+        <MudContainer MaxWidth="MaxWidth.Large">
+            <MudBreadcrumbs Items="breadcrumbs" />
+
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Edit Ticket
+                </MudText>
+
+                <EditForm Model="ticket"
+                          class="vstack gap-3"
+                          OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    @* title (input) *@
+                    <MudTextField @bind-Value="ticket.Title"
+                                  For="() => ticket.Title"
+                                  Label="Title"
+                                  Variant="Variant.Outlined" />
+
+                    @* description (textarea) *@
+                    <MudTextField @bind-Value="ticket.Description"
+                                  For="() => ticket.Description"
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  Lines="5"
+                                  MaxLines="15"
+                                  Sizing="InputSizing.Auto" />
+
+                    @* project (select) *@
+                    <MudSelect @bind-Value="ticket.ProjectId"
+                               For="() => ticket.ProjectId"
+                               Label="Project"
+                               Variant="Variant.Outlined"
+                               Disabled>
+                        <MudSelectItem Value="ticket.ProjectId">
+                            @(ticket.Project?.Name ?? "Unknown")
+                        </MudSelectItem>
+                    </MudSelect>
+
+                    @* submitter | developer (select) *@
+                    <div class="hstack flex-wrap gap-3 align-items-start">
+                        <MudSelect Value="@(ticket.SubmitterUserId)"
+                                   For="() => ticket.SubmitterUserId"
+                                   Label="Submitter"
+                                   Variant="Variant.Outlined"
+                                   Disabled>
+                            <MudSelectItem Value="@(ticket.SubmitterUserId)">
+                                @(ticket.SubmitterUser?.FullName ?? "Unknown")
+                            </MudSelectItem>
+                        </MudSelect>
+
+                        <MudSelect @bind-Value="ticket.DeveloperUserId"
+                                   For="() => ticket.DeveloperUserId"
+                                   Label="Developer"
+                                   Variant="Variant.Outlined"
+                                   Disabled="@(developers.Count() == 0 || !canUserAssignTicket)"
+                                   Placeholder="@(developers.Any() ? "Select a Developer" : "No developers available")">
+                            @foreach (UserDTO developer in developers)
+                            {
+                                <MudSelectItem Value="@developer.Id">
+                                    @developer.FullName
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    @* status (chips) *@
+                    <div>
+                        <MudField Variant="Variant.Outlined" Label="Ticket Status">
+                            <MudChipSet T="TicketStatus" @bind-SelectedValue="ticket.Status" CheckMark="true">
+                                @foreach (TicketStatus status in Enum.GetValues<TicketStatus>())
+                                {
+                                    <MudChip T="TicketStatus" Value="status" Color="status.GetColor()" Text="@status.GetDisplayName()" />
+                                }
+                            </MudChipSet>
+                        </MudField>
+                        <ValidationMessage For="() => ticket.Status" />
+                    </div>
+
+                    @* type (chips) *@
+                    <div>
+                        <MudField Variant="Variant.Outlined" Label="Ticket Type">
+                            <MudChipSet T="TicketType" @bind-SelectedValue="ticket.Type" CheckMark="true">
+                                @foreach (TicketType type in Enum.GetValues<TicketType>())
+                                {
+                                    <MudChip T="TicketType" Value="type" Color="type.GetColor()" Text="@type.GetDisplayName()" />
+                                }
+                            </MudChipSet>
+                        </MudField>
+                        <ValidationMessage For="() => ticket.Type" />
+                    </div>
+
+                    @* priority (chips) *@
+                    <div>
+                        <MudField Variant="Variant.Outlined" Label="Priority">
+                            <MudChipSet T="TicketPriority" @bind-SelectedValue="ticket.Priority" CheckMark>
+                                @foreach (TicketPriority priority in Enum.GetValues<TicketPriority>())
+                                {
+                                    <MudChip T="TicketPriority" Value="priority" Color="priority.GetColor()" Text="@priority.GetDisplayName()" />
+                                }
+                            </MudChipSet>
+                        </MudField>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <MudButton Variant="Variant.Text"
+                                   Href="@($"tickets/{Id}")"
+                                   StartIcon="@Icons.Material.Filled.ArrowBack">
+                            Back to Ticket
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   ButtonType="ButtonType.Submit">
+                            Save Changes
+                        </MudButton>
+                    </div>
+
+                </EditForm>
+            </MudPaper>
+        </MudContainer>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private List<BreadcrumbItem> breadcrumbs = [];
+
+    private bool loading = true;
+
+    private IEnumerable<UserDTO> developers = [];
+
+    private bool canUserAssignTicket = false;
+
+    private TicketDTO? ticket { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+        UserDTO? projectManager = null;
+
+        try
+        {
+            ticket = await TicketService.GetTicketByIdAsync(Id, userInfo!);
+
+
+            if (ticket is not null)
+            {
+                breadcrumbs = new List<BreadcrumbItem>()
+                {
+                    new("Home", href: "/"),
+                    new("Tickets", href: "/tickets"),
+                    new(ticket.Title!, href: $"/tickets/{Id}"),
+                    new("Edit Ticket", href: null, disabled: true)
+                };
+
+                projectManager = await ProjectService.GetProjectManagerAsync(ticket.ProjectId, userInfo!);
+                canUserAssignTicket = userInfo!.IsInRole(Role.Admin) || projectManager?.Id == userInfo!.UserId;
+
+                IEnumerable<UserDTO> members = await ProjectService.GetProjectMembersAsync(ticket.ProjectId, userInfo!);
+                developers = members.Where(m => m.Role == Role.Developer);
+
+                if (!developers.Any(d => d.Id == ticket.DeveloperUserId))
+                {
+                    ticket.DeveloperUserId = null;
+                }
+            }
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load ticket", Severity.Error);
+        }
+
+        if (ticket is not null
+            && ticket.SubmitterUserId != userInfo!.UserId
+            && ticket.DeveloperUserId != userInfo.UserId
+            && projectManager?.Id != userInfo.UserId
+            && !userInfo.IsInRole(Role.Admin))
+        {
+            Snackbar.Add("You are not authorized to edit the requested ticket", Severity.Error);
+            Nav.NavigateTo($"tickets/{ticket.Id}");
+        }
+
+        loading = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (ticket is null)
+        {
+            return;
+        }
+
+        bool success;
+
+        try
+        {
+            await TicketService.UpdateTicketAsync(ticket, userInfo!);
+            success = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to update ticket", Severity.Error);
+
+            success = false;
+        }
+
+        if (success)
+        {
+            Snackbar.Add("Ticket successfully updated!", Severity.Success);
+            Nav.NavigateTo($"tickets/{ticket.Id}");
+        }
+    }
+
+}

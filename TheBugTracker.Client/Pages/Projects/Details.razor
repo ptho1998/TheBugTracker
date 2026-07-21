@@ -1,0 +1,434 @@
+﻿@page "/projects/{id:int}"
+@inject IProjectDTOService ProjectService
+@inject ICompanyDTOService CompanyService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="h-100">
+    <MudBreadcrumbs Items="breadcrumbs" />
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading project..." />
+    }
+    else if (project is null)
+    {
+        <PageTitle>Not Found | The Bug Tracker</PageTitle>
+        <div class="h-100 d-flex align-items-center justify-content-center text-center flex-column">
+            <MudText Color="Color.Tertiary"
+                     Typo="Typo.button"
+                     Class="fs-5">
+                No project found
+            </MudText>
+            <MudButton Href="/projects"
+                       Variant="Variant.Text"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Size="Size.Small">
+                Back to all projects
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <PageTitle>@project.Name | The Bug Tracker</PageTitle>
+
+        <div class="vstack gap-3">
+            @* project header *@
+            <MudPaper Class="p-3">
+                <div class="d-flex">
+                    <MudText Typo="Typo.h5" Class="me-auto" GutterBottom>
+                        @project.Name
+                    </MudText>
+                    @if (project.Archived)
+                    {
+                        <MudChip T="string"
+                                 Color="Color.Error"
+                                 Size="Size.Small">
+                            Archived
+                        </MudChip>
+                    }
+                </div>
+                <div>
+                    <MudChip T="string" Label="true" Color="@project.Priority.GetColor()" Variant="Variant.Text">
+                        Priority: @project.Priority.GetDisplayName()
+                    </MudChip>
+
+                    <MudChip T="string"
+                             Label="true"
+                             Variant="Variant.Text"
+                             Color="@(project.EndDate < DateTimeOffset.UtcNow ? Color.Error : Color.Default)">
+                        @project.StartDateTime?.ToShortDateString() - @project.EndDateTime?.ToShortDateString()
+                    </MudChip>
+                </div>
+                @*Display PM *@
+                <div class="mt-2 hstack gap-2">
+                    <UserCard User="projectManager" 
+                              PlaceholderName="Unassigned" 
+                              PlaceholderRole="@Role.ProjectManager.GetDisplayName()"/>
+
+                    @if (userCanEditProject)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Variant="Variant.Text"
+                                       Size="Size.Small"
+                                       OnClick="() => projectManagerDialogVisible = true" />
+                    }
+
+                </div>
+            </MudPaper>
+
+            @* description *@
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h6">Description</MudText>
+                <MudText Typo="Typo.body1">@project.Description</MudText>
+            </MudPaper>
+
+            @* project members *@
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h6">Project Members</MudText>
+                @if (project.Members.Where(m => m.Role != Role.ProjectManager).Count() == 0)
+                {
+                    <div class="p-5 text-center">
+                        <MudText Typo="Typo.button" Color="Color.Tertiary">
+                            No Members Assigned
+                        </MudText>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-3 py-3 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5">
+                    @foreach (UserDTO member in project.Members.Where(m => m.Role != Role.ProjectManager))
+                        {
+                            <div class="col">
+                                <UserCard User="member"/>
+                            </div>
+                        }
+                    </div>
+
+                }
+                @if (userCanEditProject)
+                {
+                    <MudButton Size="Size.Small"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Settings"
+                               OnClick="() => projectMemberDialogVisible = true">
+                        Manage Team
+                    </MudButton>
+                }
+
+            </MudPaper>
+
+            @* project tickers *@
+            <MudPaper Class="p-3">
+                <MudTabs>
+                    <MudTabPanel Text="Open Tickets">
+                        <ProjectTicketTable Tickets="project.Tickets.Where(t => (project.Archived ? t.ArchivedByProject : !t.Archived) && t.Status != TicketStatus.Resolved).OrderByDescending(t => t.LastModified)" />
+                    </MudTabPanel>
+                    <MudTabPanel Text="Resolved Tickets">
+                        <ProjectTicketTable Tickets="project.Tickets.Where(t => (project.Archived ? t.ArchivedByProject : !t.Archived) && t.Status == TicketStatus.Resolved).OrderByDescending(t => t.LastModified)" />
+                    </MudTabPanel>
+                    <MudTabPanel Text="Archived Tickets">
+                        <ProjectTicketTable Tickets="project.Tickets.Where(t => project.Archived ? !t.ArchivedByProject : t.Archived).OrderByDescending(t => t.LastModified)" />
+                    </MudTabPanel>
+                </MudTabs>
+                <MudButton Size="Size.Small"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.AddCircle">
+                   New Ticket
+                </MudButton>
+            </MudPaper>
+            
+            @* project controls *@
+            <div class="d-flex">
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Href="projects"
+                           Color="Color.Primary">
+                    Back to Projects
+                </MudButton>
+
+                @if (userCanEditProject)
+                {
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               Href="@($"projects/{project.Id}/edit")"
+                               Color="Color.Primary"
+                               Class="ms-auto">
+                        Edit
+                    </MudButton>
+                    @if (project.Archived)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.RestoreFromTrash"
+                                   Color="Color.Success"
+                                   OnClick="ConfirmToogleArchive">
+                            Restore
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   OnClick="ConfirmToogleArchive">
+                            Archive
+                        </MudButton>
+                    }
+
+                }
+            </div>
+        </div>
+
+        @if (userCanEditProject)
+        {
+            <MudMessageBox @ref="archiveConfirmationBox"
+                           Title="@(project.Archived ? "Restore Project" : "Archive Project")"
+                           CancelText="Cancel">
+                <MessageContent>
+                    Are you sure you want to @(project.Archived ? "restore" : "archive") this project?
+                </MessageContent>
+                <YesButton>
+                    @if (project.Archived)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.RestoreFromTrash"
+                                   Color="Color.Success"
+                                   Class="ms-2"
+                                   OnClick="HandleToggleArchive">
+                            Restore
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Class="ms-2"
+                                   OnClick="HandleToggleArchive">
+                            Archive
+                        </MudButton>
+                    }
+
+                </YesButton>
+            </MudMessageBox>
+
+            <MudDialog @bind-Visible="projectMemberDialogVisible">
+                <TitleContent>
+                    <MudText Typo="Typo.h5">
+                        Manage Project Team
+                    </MudText>
+                </TitleContent>
+                <DialogContent>
+                    <ProjectMemberManager Project="project" OnClose="() => projectMemberDialogVisible = false" />
+                </DialogContent>
+            </MudDialog>
+
+            <MudDialog @bind-Visible="projectManagerDialogVisible">
+                <TitleContent>
+                    <MudText Typo="Typo.h5">
+                        Assign Project Manager
+                    </MudText>
+                </TitleContent>
+                <DialogContent>
+                    <div class="vstack gap-3">
+
+                        <UserCard User="projectManagers.FirstOrDefault(pm => pm.Id == selectedPmId)"
+                                  PlaceholderName="Unassigned"
+                                  PlaceholderRole="@Role.ProjectManager.GetDisplayName()" />
+                        <MudSelect T="string"  Label="Project Manager"
+                                   @bind-Value="selectedPmId"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Placeholder="Select a Project Manager">
+                            @foreach (UserDTO pm in projectManagers)
+                            {
+                                <MudSelectItem Value="pm.Id">
+                                    <div class="hstack gap-2 align-items-center">
+                                        <MudAvatar Size="Size.Small">
+                                            <MudImage Src="@pm.ImageUrl" />
+                                        </MudAvatar>
+
+                                        @pm.FullName
+                                    </div>
+
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+
+                    </div>
+                </DialogContent>
+                <DialogActions>
+
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Cancel"
+                               OnClick="HandleCancelProjectManager">
+                        Cancel
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="HandleSaveProjectManager">
+                        Save
+                    </MudButton>
+
+                </DialogActions>
+            </MudDialog>
+        }
+
+
+    }
+</MudContainer>
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private ProjectDTO? project;
+
+    UserInfo? userInfo;
+
+    private bool loading = true;
+
+    private bool projectMemberDialogVisible = false;
+
+    private bool userCanEditProject = false;
+
+    private List<BreadcrumbItem> breadcrumbs = [];
+
+    private MudMessageBox? archiveConfirmationBox;
+
+    private UserDTO? projectManager;
+    private string? selectedPmId;
+    private IEnumerable<UserDTO> projectManagers = [];
+    private bool projectManagerDialogVisible = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        try
+        {
+            project = await ProjectService.GetProjectByIdAsync(Id, userInfo!);
+
+            breadcrumbs = new()
+            {
+                new BreadcrumbItem("Home", href: "/"),
+                new BreadcrumbItem("Projects", href: "/projects")
+            };
+
+            if(project is null)
+            {
+                breadcrumbs.Add(new BreadcrumbItem("Not Found", href: null, disabled: true));
+                userCanEditProject = false;
+            }
+            else
+            {
+                if (project.Archived)
+                {
+                    breadcrumbs.Add(new BreadcrumbItem("Archive", href: "/projects/archive"));
+
+                }
+
+                breadcrumbs.Add(new BreadcrumbItem(project.Name!, href: null, disabled: true));
+
+                projectManagers = await CompanyService.GetUsersInRoleAsync(Role.ProjectManager, userInfo!);
+                projectManager = project.Members.FirstOrDefault(m => m.Role == Role.ProjectManager);
+                selectedPmId = projectManager?.Id;
+
+                userCanEditProject = userInfo!.IsInRole(Role.Admin) || userInfo!.UserId == projectManager?.Id;
+
+            }
+
+        }catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An error occurred loading your project", Severity.Error);
+        }
+
+        loading = false;
+    }
+
+    private async Task ConfirmToogleArchive()
+    {
+        if (!userCanEditProject) return;
+
+        if (archiveConfirmationBox is not null)
+        {
+            await archiveConfirmationBox.ShowAsync();
+        }
+    }
+
+    private async Task HandleToggleArchive()
+    {
+        if (project is null || !userCanEditProject)
+        {
+            return;
+        }
+
+        try
+        {
+            if (project.Archived)
+            {
+                //restore project
+                await ProjectService.RestoreProjectAsync(project.Id, userInfo!);
+            }
+            else
+            {
+                //archive the projec
+                await ProjectService.ArchiveProjectAsync(project.Id, userInfo!);
+
+            }
+            // refresh the info on the page
+            project = await ProjectService.GetProjectByIdAsync(project.Id, userInfo!);
+
+            Snackbar.Add($"The project has successfully been {(project!.Archived ? "archived" : "restored")}", Severity.Success);
+
+        }catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An error occurred attempting to archive this project", Severity.Error);
+        }
+    }
+
+    private void HandleCancelProjectManager()
+    {
+        projectManagerDialogVisible = false;
+        selectedPmId = projectManager?.Id;
+    }
+
+    private async Task HandleSaveProjectManager()
+    {
+        projectManagerDialogVisible = false;
+
+        if (!userCanEditProject) return;
+
+        try
+        {
+            if (string.IsNullOrEmpty(selectedPmId))
+            {
+                await ProjectService.RemoveProjectManagerAsync(Id, userInfo!);
+            }
+            else
+            {
+                await ProjectService.AssignProjectManagerAsync(Id, selectedPmId, userInfo!);
+            }
+
+            Snackbar.Add("Project manager updated successfully", Severity.Success);
+
+            project!.Members = [.. await ProjectService.GetProjectMembersAsync(Id, userInfo!)];
+            projectManager = project.Members.FirstOrDefault(m => m.Role == Role.ProjectManager);
+            selectedPmId = projectManager?.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to update project manager", Severity.Error);
+        }
+
+    }
+}

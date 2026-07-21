@@ -1,0 +1,36 @@
+﻿
+<div class="d-flex align-items-center gap-2">
+    <div>
+        <MudAvatar>
+            @if(User is null)
+            {
+                <text>?</text>
+            }
+            else
+            {
+                <MudImage Src="@User.ImageUrl" />
+            }
+           
+        </MudAvatar>
+    </div>
+    <div>
+        <MudText Typo="Typo.body1" Style="line-height: 1em">
+            @(User?.FullName ?? PlaceholderName)
+        </MudText>
+        <MudText Typo="Typo.overline" Style="line-height: 1em">
+            @(User?.Role?.GetDisplayName() ?? PlaceholderRole)
+        </MudText>
+    </div>
+</div>
+
+
+@code {
+    [Parameter, EditorRequired]
+    public UserDTO? User { get; set; }
+
+    [Parameter]
+    public string PlaceholderName { get; set; } = "Unknow";
+
+    [Parameter]
+    public string PlaceholderRole { get; set; } = "Unknow Role";
+}

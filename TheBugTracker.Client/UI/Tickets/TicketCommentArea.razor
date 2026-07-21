@@ -1,0 +1,93 @@
+﻿<MudPaper>
+    <div class="p-3">
+        <MudText Typo="Typo.h6" GutterBottom>Comments</MudText>
+    </div>
+    <div class="p-3 d-flex flex-column gap-3" 
+         style="background-color: var(--mud-palette-background); min-height: 150px; max-height: 400px; overflow-y:auto; justify-content: flex-end">
+        @if (Comments.Any())
+        {
+            @foreach (TicketCommentDTO comment in Comments.OrderBy(c => c.Created))
+            {
+                <CommentBox Comment="comment"
+                            OnEdit="OnEdit"
+                            OnDelete="OnDelete" />
+            }
+        }
+        else
+        {
+            <div class="m-auto">
+                <MudText Typo="Typo.button"
+                         Color="Color.Tertiary">
+                    No Comments Yet
+                </MudText>
+            </div>
+        }
+
+    </div>
+    @if (CanComment)
+    {
+        <MudDivider DividerType="DividerType.FullWidth" Light />
+        <EditForm Model="newComment" 
+                  class="p-3 d-flex gap-2 align-items-end"
+                  OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator/>
+            <MudTextField Lines="3"
+                          Sizing="InputSizing.Auto"
+                          Variant="Variant.Outlined"
+                          Label="Add a comment"
+                          Class="flex-grow-1"
+                          @bind-Value="newComment.Content"
+                          For="() => newComment.Content" />
+
+            <MudIconButton Icon="@Icons.Material.Filled.Send"
+                           Color="Color.Primary"
+                           ButtonType="ButtonType.Submit" />
+        </EditForm>
+    }
+</MudPaper>
+
+@code {
+    [Parameter]
+    public IEnumerable<TicketCommentDTO> Comments { get; set; } = [];
+
+    [Parameter]
+    public bool CanComment { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public EventCallback<TicketCommentDTO> OnAdd { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback<TicketCommentDTO> OnEdit { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback<int> OnDelete { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    TicketCommentDTO newComment = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is null)
+        {
+            return;
+        }
+
+        newComment = new TicketCommentDTO() { UserId = userInfo.UserId };
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (CanComment)
+        {
+            await OnAdd.InvokeAsync(newComment);
+
+            newComment = new() { UserId = userInfo!.UserId };
+        }
+    }
+}

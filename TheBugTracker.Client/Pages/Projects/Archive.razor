@@ -1,0 +1,68 @@
+﻿@page "/projects/archive"
+@attribute [Authorize]
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+
+<PageTitle>Archived Projects | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-4 page-container">
+    <MudBreadcrumbs Items="breadcrums" />
+
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading projects..." />
+    }
+    else
+        @if (projects.Count() > 0)
+        {
+            <div class="row g-3 row-cols-1 row-cols-md-2 row-cols-xl-3">
+                @foreach (ProjectDTO project in projects)
+                {
+                    <div class="py-3">
+                        <ProjectCard Project="project" />
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="h-100 d-flex align-items-center justify-content-center">
+                <MudText Color="Color.Tertiary" Typo="Typo.button">
+                    No Archived Projects Found
+                </MudText>
+            </div>
+        }
+
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private IEnumerable<ProjectDTO> projects = [];
+
+    private static readonly List<BreadcrumbItem> breadcrums = new()
+    {
+        new BreadcrumbItem("Home", href:"/"),
+        new BreadcrumbItem("Projects", href:"/projects"),
+        new BreadcrumbItem("Archive", href: null, disabled: true)
+    };
+
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            UserInfo? userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+            projects = await ProjectService.GetArchivedProjectAsync(userInfo!);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load archived projects", Severity.Error);
+        }
+        loading = false;
+    }
+}

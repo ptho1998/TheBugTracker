@@ -1,0 +1,114 @@
+﻿<MudDataGrid Items="Tickets"
+             RowsPerPage="10"
+             Dense="true"
+             ColumnResizeMode="ResizeMode.Container"
+             DragDropColumnReordering
+             Hideable
+             ShowMenuIcon
+             QuickFilter="TicketFilter">
+    <ToolBarContent>
+        <MudTextField Variant="Variant.Text"
+                      Placeholder="Search tickets..."
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Adornment="Adornment.Start"
+                      @bind-Value="searchText"
+                      Immediate="true"
+                      Clearable="true" />
+        <MudSpacer />
+        <MudButton Color="Color.Secondary"
+                   Href="tickets/create"
+                   Variant="Variant.Outlined"
+                   Class="me-2"
+                   Size="Size.Small">
+            New Ticket
+        </MudButton>
+    </ToolBarContent>
+    <PagerContent>
+        <MudDataGridPager />
+    </PagerContent>
+    <NoRecordsContent>
+        <div class="text-center py-5">
+            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                No Tickets Found
+            </MudText>
+        </div>
+    </NoRecordsContent>
+    <Columns>
+        <PropertyColumn Property="t => t.Title">
+            <CellTemplate>
+                <MudLink Typo="Typo.inherit"
+                         Href="@($"tickets/{context.Item.Id}")">
+                    @context.Item.Title
+                </MudLink>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="@(t => t.Project != null ? t.Project.Name : "Unknown")"></PropertyColumn>
+        <PropertyColumn Property="t => t.Type">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="context.Item.Type.GetColor()">
+                    @context.Item.Type.GetDisplayName()
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.Status">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="context.Item.Status.GetColor()">
+                    @context.Item.Status.GetDisplayName()
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.Priority">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="context.Item.Priority.GetColor()">
+                    @context.Item.Priority.GetDisplayName()
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="@(t => t.SubmitterUser != null ? t.SubmitterUser.FullName : "Unknown")" Title="Submitter">
+            <CellTemplate>
+                @if (context.Item.SubmitterUser is not null)
+                {
+                    <UserChip User="context.Item.SubmitterUser" />
+                }
+                else
+                {
+                    <text>Unknown</text>
+                }
+
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="@(t => t.DeveloperUser != null ? t.DeveloperUser.FullName : "Unassigned")" Title="Developer">
+            <CellTemplate>
+                @if (context.Item.DeveloperUser is { } developer)
+                {
+                    <UserChip User="developer" />
+                }
+                else
+                {
+                    <text>Unknown</text>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="t => t.LastModified" Title="Last Updated" Format="g"></PropertyColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<TicketDTO> Tickets { get; set; } = [];
+
+    private string searchText = string.Empty;
+
+    private bool TicketFilter(TicketDTO ticket)
+    {
+        return string.IsNullOrWhiteSpace(searchText)
+            || ticket.Title!.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+            || ticket.Project?.Name!.Contains(searchText, StringComparison.CurrentCultureIgnoreCase) == true
+            || (ticket.SubmitterUser?.FullName ?? "Unknown").Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+            || (ticket.DeveloperUser?.FullName ?? "Unassigned").Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+            || ticket.Priority.GetDisplayName().Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+            || ticket.Status.GetDisplayName().Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+            || ticket.Type.GetDisplayName().Contains(searchText, StringComparison.CurrentCultureIgnoreCase);
+
+    }
+}

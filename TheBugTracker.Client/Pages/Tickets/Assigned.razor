@@ -1,0 +1,64 @@
+﻿@page "/tickets/assigned"
+@attribute [Authorize]
+@inject ISnackbar Snackbar
+@inject ITicketDTOService TicketService
+@inject NavigationManager Navigation
+
+<PageTitle>My Tickets | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4 h-100">
+    <MudBreadcrumbs Items="breadcrums" />
+
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading Your Tickets..." />
+    }
+    else if (tickets.Any())
+    {
+        <MudText Typo="Typo.h4" GutterBottom>My Tickets</MudText>
+        <TicketTable Tickets="tickets.OrderByDescending(t => t.LastModified)" />
+    }
+    else
+    {
+        <div class="h-100 d-flex align-items-center justify-content-center">
+            <MudText Color="Color.Tertiary" Typo="Typo.button">
+                No Tickets Found!
+            </MudText>
+        </div>
+    }
+</MudContainer>
+
+    @code {
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private IEnumerable<TicketDTO> tickets = [];
+
+    private static readonly List<BreadcrumbItem> breadcrums = new()
+    {
+        new BreadcrumbItem("Home", href:"/"),
+        new BreadcrumbItem("Tickets", href:"/tickets"),
+        new BreadcrumbItem("My Tickets", href: null, disabled: true)
+    };
+
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            UserInfo? userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+            tickets = await TicketService.GetAssignedTicketsAsync(userInfo!);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to load your tickets", Severity.Error);
+        }
+
+        loading = false;
+    }
+
+}

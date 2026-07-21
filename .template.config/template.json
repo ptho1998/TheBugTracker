@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Coder",
+  "classifications": ["Web", "Blazor"],
+  "identity": "MyCompany.TheBugTracker",
+  "name": "TheBugTracker",
+  "shortName": "thebugtracker",
+  "description": "Blazor Interactive Auto Bug Tracker",
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "sourceName": "TheBugTracker",
+  "preferNameDirectory": true,
+  "sources": [
+    {
+      "source": "./",
+      "target": "./",
+      "exclude": [
+        ".template.config/**",
+        "**/.vs/**",
+        "**/bin/**",
+        "**/obj/**",
+        "**/*.user"
+      ]
+    }
+  ]
+}

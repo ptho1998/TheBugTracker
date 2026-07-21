@@ -1,0 +1,57 @@
+﻿
+
+@if (Project is not null)
+{
+    <MudCard Elevation="3" Class="h-100">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudLink Typo="Typo.body1" Href="@($"/projects/{Project.Id}")" Class="d-block">
+                    @Project.Name
+                </MudLink>
+                <MudText Typo="Typo.caption">
+                    @Project.StartDate?.ToString("d") -  @Project.EndDate?.ToString("d")
+                </MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <div class="d-flex align-items-center justify-content-center h-100">
+                @if (Project.Members.Any())
+                {
+                    <MudAvatarGroup Max="5"
+                                    MaxColor="Color.Primary">
+                        @foreach (UserDTO member in Project.Members)
+                        {
+                            <MudAvatar>
+                                <MudTooltip Text="@member.FullName" Arrow>
+                                    <MudImage Src="@member.ImageUrl" Height="40" />
+                                </MudTooltip>                   
+                            </MudAvatar>
+                        }
+                    </MudAvatarGroup>
+                }
+                else
+                {
+                    <MudText Typo="Typo.button" Color="Color.Tertiary">
+                        No Project Members
+                    </MudText>
+                }
+
+            </div>
+        </MudCardContent>
+        <MudCardActions>
+            <MudChip T="string" Color="Project.Priority.GetColor()" Label="true" Variant="Variant.Text">
+                Priority: @Project.Priority.GetDisplayName()
+            </MudChip>
+            <MudButton Class="ms-auto" Color="Color.Tertiary" Href="@($"/projects/{Project.Id}")" EndIcon="@Icons.Material.Filled.ArrowForward">
+                Details
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+
+@code {
+    [Parameter, EditorRequired]
+    public ProjectDTO? Project { get; set; }
+
+}

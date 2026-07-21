@@ -1,0 +1,144 @@
+﻿@inject IDialogService DialogService
+
+@if (Comment is not null)
+{
+    <EditForm Model="formComment"
+              OnValidSubmit="HandleSubmit"
+              class="@(isMine ? "d-flex gap-2 align-items-start flex-row-reverse" : "d-flex gap-2 align-items-start flex-row")">
+        <DataAnnotationsValidator />
+        <MudAvatar>
+            <MudImage Src="@Comment.User?.ImageUrl" />
+        </MudAvatar>
+        <div class="@(editing ? "flex-grow-1" : string.Empty)">
+            <MudPaper Class="px-3 py-2"
+                      Style="@(editing ? "background-color:#ffffff;" : (isMine ? "background-color:#e3f2fd;" : ""))">
+                <MudText Typo="Typo.overline"
+                         Style="line-height: 1em"
+                         GutterBottom>
+                    @Comment.User?.FullName
+                </MudText>
+                @if (editing == false)
+                {
+                    <MudText Typo="Typo.body1">@Comment.Content</MudText>
+                }
+                else
+                {
+                    <MudTextField @bind-Value="formComment.Content"
+                                  For="() => formComment.Content"
+                                  Variant="Variant.Outlined"
+                                  Label="Comment" 
+                                  Lines="3"
+                                  Sizing="InputSizing.Auto" />
+                }
+            </MudPaper>
+            <div class="@(isMine ? "text-end" : "text-start")">
+                <MudText Typo="Typo.caption" Inline>
+                    @Comment.Created.ToString("g")
+                </MudText>
+            </div>
+        </div>
+        <div class="vstack gap-1 flex-grow-0">
+            @if(editing == false)
+            {
+                @if (Comment.UserId == userInfo?.UserId)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   OnClick="() => editing = true" />
+                }
+                @if (Comment.UserId == userInfo?.UserId || userInfo?.IsInRole(Role.Admin) == true)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Size="Size.Small"
+                                   OnClick="HandleDelete"/>
+                }
+            }
+            else
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Save"
+                               Size="Size.Small"
+                               Color="Color.Success"
+                               ButtonType="ButtonType.Submit" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Cancel"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="CancelEdit" />
+            }
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public TicketCommentDTO? Comment { get; set; }
+
+    [Parameter]
+    public EventCallback<TicketCommentDTO> OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnDelete { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private bool editing;
+
+    private TicketCommentDTO formComment = new();
+
+    private bool isMine => userInfo is not null && Comment?.UserId == userInfo.UserId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Comment is null)
+        {
+            return;
+        }
+
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        formComment = new TicketCommentDTO()
+        {
+            Id = Comment.Id,
+            Content = Comment.Content,
+            TicketId = Comment.TicketId,
+            Created = Comment.Created,
+            UserId = Comment.UserId
+        };
+    }
+
+    private void CancelEdit()
+    {
+        if(Comment is not null)
+        {
+            formComment.Content = Comment.Content;
+        }
+        editing = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        await OnEdit.InvokeAsync(formComment);
+        editing = false;
+    }
+
+    private async Task HandleDelete()
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, "Are you sure you want to delete this comment?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Comment", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is true)
+        {
+            await OnDelete.InvokeAsync(Comment!.Id);
+        }
+    }
+}

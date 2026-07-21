@@ -1,0 +1,79 @@
+﻿@inherits LayoutComponentBase
+
+@* Required *@
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <a href="/">
+            <img src="images/TheBugTrackerLogoWhtV3.png" height="30" />
+        </a>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu/>
+    </MudDrawer>
+    <MudMainContent Class="h-100 d-flex flex-column">
+        <main class="flex-grow-1 pb-3">
+            @Body
+        </main>
+        
+        <Footer/>
+
+        <div id="blazor-error-ui" data-nosnippet>
+            An unhandled error has occurred.
+            <a href="." class="reload">Reload</a>
+            <span class="dismiss">🗙</span>
+        </div>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    bool _drawerOpen = true;
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private static MudTheme _theme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            /* core colors */
+            AppbarBackground = "#2b404f",
+            Primary = "#2b404f",
+            PrimaryLighten = "#395364",
+            PrimaryDarken = "#1a2c38",
+            Secondary = "#ff993b",
+            SecondaryLighten = "#ffa93e",
+            SecondaryDarken = "#fb7e37",
+            Tertiary = "#326c6a",
+            TertiaryLighten = "#347c7a",
+            TertiaryDarken = "#2b4f4c",
+
+            /* warning color */
+            Warning = "#ffe600",
+            WarningLighten = "#fbf700",
+            WarningDarken = "#ffcc00",
+            WarningContrastText = "#212121",
+
+            /* background & grays */
+            GrayDarker = "#212121",
+            GrayDark = "rgb(88, 88, 88)",
+            GrayDefault = "rgb(144, 144, 144)",
+            GrayLight = "rgb(210, 210, 210)",
+            GrayLighter = "#dfe3e4",
+            BackgroundGray = "#dfe3e4",
+            Background = "rgb(240, 240, 240)",
+        },
+    };
+}

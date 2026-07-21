@@ -1,0 +1,148 @@
+﻿@inject ICompanyDTOService CompanyService
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+
+@if (Project is not null)
+{
+    <AuthorizeView Roles="@($"{Role.Admin}, {Role.ProjectManager}")">
+        <div class="vstack gap-3">
+            <div>
+                <MudText Typo="Typo.h6" GutterBottom>Developers</MudText>
+                <MudChipSet @bind-SelectedValues="selectedDeveloperIds"
+                SelectionMode="SelectionMode.MultiSelection">
+                    @foreach (UserDTO developer in developers)
+                    {
+                        <UserChip User="developer"/>
+                    }
+                </MudChipSet>
+            </div>
+
+            <div>
+                <MudText Typo="Typo.h6" GutterBottom>Submitters</MudText>
+                <MudChipSet @bind-SelectedValues="selectedSubmitterIds"
+                SelectionMode="SelectionMode.MultiSelection">
+                    @foreach (UserDTO submitter in submitters)
+                    {
+                        <UserChip User="submitter" />
+                    }
+                </MudChipSet>
+
+            </div>
+
+            <div class="text-end">
+                <MudButton Variant="Variant.Text"
+                Color="Color.Error"
+                StartIcon="@Icons.Material.Filled.Cancel"
+                OnClick="HandleCancel">
+                    Cancel
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Save"
+                OnClick="HandleSave">
+                    Save
+                </MudButton>
+            </div>
+
+        </div>
+    </AuthorizeView>
+}
+
+
+
+@code {
+    [Parameter, EditorRequired]
+    public ProjectDTO? Project { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private IEnumerable<UserDTO> developers = [];
+    private IEnumerable<UserDTO> submitters = [];
+
+    private IReadOnlyCollection<string> selectedDeveloperIds = [];
+    private IReadOnlyCollection<string> selectedSubmitterIds = [];
+
+    private IEnumerable<string> originalMemberIds = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+        originalMemberIds = Project?.Members.Select(m => m.Id) ?? [];
+
+        try
+        {
+            //get all available devs/submitters
+            developers = await CompanyService.GetUsersInRoleAsync(Role.Developer, userInfo!);
+            submitters = await CompanyService.GetUsersInRoleAsync(Role.Submitter, userInfo!);
+
+            // preselect the current users
+            selectedDeveloperIds = [.. developers.Select(d => d.Id).Where(id => originalMemberIds.Contains(id))];
+            selectedSubmitterIds = [.. submitters.Select(s => s.Id).Where(id => originalMemberIds.Contains(id))];
+
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to users", Severity.Error);
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        selectedDeveloperIds = [.. developers.Select(d => d.Id).Where(id => originalMemberIds.Contains(id))];
+        selectedSubmitterIds = [.. submitters.Select(s => s.Id).Where(id => originalMemberIds.Contains(id))];
+
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleSave()
+    {
+        if (Project is null || userInfo is null)
+            return;
+
+        try
+        {
+            // TODO: actually save these changes
+            // Console.WriteLine($"developers: {string.Join(", ", selectedDeveloperIds)}");
+            // Console.WriteLine($"submitters: {string.Join(", ", selectedSubmitterIds)}");
+
+            IEnumerable<string> selectedUserIds = [.. selectedDeveloperIds, .. selectedSubmitterIds];
+
+            // new members => selected members NOT in original members 
+            IEnumerable<string> addedUserIds = selectedUserIds.Except(originalMemberIds);
+            foreach (string userId in addedUserIds)
+            {
+                await ProjectService.AddProjectMemberAsync(Project.Id, userId, userInfo);
+            }
+
+            // removed members => orginal members NOT in selected members
+            IEnumerable<string> removedUserIds = originalMemberIds.Except(selectedUserIds);
+            foreach (string userId in removedUserIds)
+            {
+                await ProjectService.RemoveProjectMemberAsync(Project.Id, userId, userInfo);
+            }
+
+            //Update Project.Members
+            Project.Members = [.. await ProjectService.GetProjectMembersAsync(Project.Id, userInfo)];
+
+            //Update originalMemberIds after save
+            originalMemberIds = Project.Members.Select(m => m.Id);
+
+            Snackbar.Add("Project members updated", Severity.Success);
+            await OnClose.InvokeAsync();
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to save changes", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,177 @@
+﻿@page "/projects/{id:int}/edit"
+@attribute [Authorize(Roles = $"{nameof(Role.Admin)}, {nameof(Role.ProjectManager)}")]
+@inject IProjectDTOService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Edit Project | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudBreadcrumbs Items="breadcrums" /> @* todo: define breadcrumbs *@
+
+    @if(project is null)
+    {
+        <div class="h-100 d-flex flex-column align-items-center justify-content-center gap-2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Secondary" />
+            <MudText Typo="Typo.button" Color="Color.Default">
+                Loading project ...
+            </MudText>
+        </div>
+    }
+    else
+    {
+    <MudPaper Class="p-3">
+        <MudText Typo="Typo.h6" GutterBottom>
+            Edit Project
+        </MudText>
+        <EditForm Model="project"
+                    class="vstack gap-3"
+                    OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="project.Name"
+                            For="() => project.Name"
+                            Label="Project Name"
+                            Variant="Variant.Outlined" />
+
+            <MudTextField @bind-Value="project.Description"
+                            For="() => project.Description"
+                            Label="Description"
+                            Variant="Variant.Outlined"
+                            Lines="5"
+                            MaxLines="15"
+                            Sizing="InputSizing.Auto" />
+
+            <div class="hstack gap-3 flex-wrap align-items-start">
+                <MudDatePicker @bind-Date="project.StartDateTime"
+                                For="() => project.StartDateTime"
+                                Label="Start Date"
+                                Variant="Variant.Outlined"
+                                ErrorText="Please select a valid Start Date" />
+
+                <MudDatePicker @bind-Date="project.EndDateTime"
+                                For="() => project.EndDateTime"
+                                Label="End Date"
+                                Variant="Variant.Outlined"
+                                ErrorText="Please select a valid End Date" />
+            </div>
+
+            <MudField Label="Project Priority" Variant="Variant.Outlined">
+                    <MudChipSet T="ProjectPriority"
+                                @bind-SelectedValue="project.Priority"
+                                CheckMark
+                                SelectionMode="SelectionMode.SingleSelection">
+                    @foreach (ProjectPriority priority in Enum.GetValues<ProjectPriority>())
+                    {
+                            <MudChip T="ProjectPriority"
+                                     Value="priority"
+                                    Text="@priority.GetDisplayName()"
+                                    Color="@priority.GetColor()" />
+                    }
+                </MudChipSet>
+            </MudField>
+            <ValidationMessage For="() => project.Priority" />
+
+            <div class="d-flex">
+                <MudButton Variant="Variant.Text"
+                            Href="@($"projects/{project.Id}")"
+                            StartIcon="@Icons.Material.Filled.ArrowBack">
+                    Back to Project
+                </MudButton>
+                <MudButton Color="Color.Primary"
+                            ButtonType="ButtonType.Submit"
+                            StartIcon="@Icons.Material.Filled.Save"
+                            Variant="Variant.Filled"
+                            Class="ms-auto">
+                    Submit
+                </MudButton>
+            </div>
+
+
+        </EditForm>
+    </MudPaper>
+    }
+
+ 
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    UserInfo? userInfo;
+
+    private ProjectDTO? project;
+
+    private List<BreadcrumbItem> breadcrums = new()
+    {
+        new BreadcrumbItem("Home", href:"/"),
+        new BreadcrumbItem("Projects", href:"/projects"),
+        new BreadcrumbItem("Edit Projects", href: null, disabled: true)
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+        project = null;
+        try
+        {
+            project = await ProjectService.GetProjectByIdAsync(Id, userInfo!);
+
+            if(project is null)
+            {
+                Snackbar.Add("The selected project could not be found", Severity.Error);
+            }
+            else
+            {
+                breadcrums = new()
+                {
+                    new BreadcrumbItem("Home", href:"/"),
+                    new BreadcrumbItem("Projects", href:"/projects"),
+                    new BreadcrumbItem(project.Name!, href:$"/projects/{project.Id}"),
+                    new BreadcrumbItem("Edit Projects", href: null, disabled: true)
+                };
+            }
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An error occured loading the selected project", Severity.Error);
+
+        }
+
+        if(project is null)
+        {
+            Nav.NavigateTo($"projects");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if(project is null)
+        {
+            return;
+        }
+
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        try
+        {
+            await ProjectService.UpdateProjectAsync(project, userInfo!);
+            Snackbar.Add($"Project '{project.Name}' was successfully updated!", Severity.Success);
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An error occurred saving your changes", Severity.Error);
+            return;
+        }
+
+        Nav.NavigateTo($"/projects/{project.Id}");
+
+    }
+}

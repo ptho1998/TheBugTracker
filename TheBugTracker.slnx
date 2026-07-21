@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TheBugTracker.Client/TheBugTracker.Client.csproj" />
+  <Project Path="TheBugTracker/TheBugTracker.csproj" />
+</Solution>

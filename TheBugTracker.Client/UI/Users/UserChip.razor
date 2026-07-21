@@ -1,0 +1,20 @@
+﻿@if(User is not null)
+{
+    <MudChip T="string" Value="User.Id" SelectedColor="Color.Info">
+        <AvatarContent>
+            <MudAvatar>
+                <MudImage Src="@User.ImageUrl" />
+            </MudAvatar>
+        </AvatarContent>
+        <ChildContent>
+            @User.FullName
+        </ChildContent>
+    </MudChip>
+}
+
+
+
+@code {
+    [Parameter, EditorRequired]
+    public UserDTO? User { get; set; }
+}

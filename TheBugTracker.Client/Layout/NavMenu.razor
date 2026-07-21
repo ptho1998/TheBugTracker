@@ -1,0 +1,105 @@
+﻿@implements IDisposable
+@inject NavigationManager NavigationManager
+
+<MudNavMenu>
+    <AuthorizeView>
+        <MudNavGroup Title="Company" Expanded>
+            <MudNavLink Href="/dashboard" Icon="@Icons.Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            <MudNavLink Href="/company" Icon="@Icons.Material.Filled.Business">
+                Company Details
+            </MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Projects" Expanded>
+            <MudNavLink Href="/projects" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FolderCopy">
+                All Projects
+            </MudNavLink>
+            @if (!context.User.IsInRole(nameof(Role.Admin)))
+            {
+                <MudNavLink Href="/projects/assigned" Icon="@Icons.Material.Filled.FolderShared">
+                    My Projects
+                </MudNavLink>
+            }
+ 
+            <MudNavLink Href="/projects/archive" Icon="@Icons.Material.Filled.Archive">
+                Archived Projects
+            </MudNavLink>
+            @if (context.User.IsInRole(nameof(Role.Admin)) || context.User.IsInRole(nameof(Role.ProjectManager)))
+            {
+                <MudNavLink Href="/projects/create" Icon="@Icons.Material.Filled.CreateNewFolder">
+                    Create Project
+                </MudNavLink>
+            }
+        </MudNavGroup>
+
+        <MudNavGroup Title="Tickets" Expanded>
+            <MudNavLink Href="/tickets" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Assessment">
+                Open Tickets
+            </MudNavLink>
+            <MudNavLink Href="/tickets/assigned" Icon="@Icons.Material.Filled.AssignmentInd">
+                My Tickets
+            </MudNavLink>
+            <MudNavLink Href="/tickets/resolved" Icon="@Icons.Material.Filled.AssignmentTurnedIn">
+                Resolved Tickets
+            </MudNavLink>
+            <MudNavLink Href="/tickets/archive" Icon="@Icons.Material.Filled.Archive">
+                Archived Tickets
+            </MudNavLink>
+            <MudNavLink Href="/tickets/create" Icon="@Icons.Material.Filled.AssignmentLate">
+                Submit Ticket
+            </MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <MudNavGroup Title="Account" Expanded>
+        <AuthorizeView>
+            <Authorized>
+                <MudNavLink Href="/account/manage" Icon="@Icons.Material.Filled.Person">
+                    @UserInfoHelper.GetUserInfo(context)?.FullName
+                </MudNavLink>
+                <MudNavLink ActiveClass=""
+                            Icon="@Icons.Material.Filled.Logout"
+                            UserAttributes="@(new () {["onclick"] = "logoutForm.submit()"})">
+                    Logout
+                </MudNavLink>
+            </Authorized>
+            <NotAuthorized>
+                <MudNavLink Href="/account/login" Icon="@Icons.Material.Filled.Login">
+                    Login
+                </MudNavLink>
+                <MudNavLink Href="/account/register" Icon="@Icons.Material.Filled.PersonAdd">
+                    Register
+                </MudNavLink>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudNavGroup>
+</MudNavMenu>
+
+<form action="Account/Logout" method="post" id="logoutForm" class="d-none">
+    <AntiforgeryToken />
+    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+</form>
+
+@code {
+    private string? currentUrl;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
+
