@@ -1,5 +1,7 @@
+using ApexCharts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using MudBlazor;
@@ -80,6 +82,8 @@ builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuth
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+
+builder.Services.AddApexCharts();
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomLeft;
@@ -142,7 +146,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, SendGridEmailSender>();
+builder.Services.AddSingleton<IEmailSender, SendGridEmailSender>();
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IProjectDTOService, ProjectDTOService>();
@@ -152,6 +157,12 @@ builder.Services.AddScoped<ICompanyDTOService, CompanyDTOService>();
 
 builder.Services.AddScoped<ITicketRepository, TicketRepository>();
 builder.Services.AddScoped<ITicketDTOService, TicketDTOService>();
+
+builder.Services.AddScoped<IInviteRepository, InviteRepository>();
+builder.Services.AddScoped<IInviteDTOService, InviteDTOService>();
+
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationDTOService, NotificationDTOService>();
 
 var app = builder.Build();
 
@@ -185,6 +196,16 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+app.Use(async (ctx, next) =>
+{
+    await next(ctx);
+
+    if (ctx.Request.Path.StartsWithSegments("/images/png") && ctx.Response.StatusCode == 404)
+    {
+        ctx.Response.Redirect("/images/png/default.png");
+    }
+});
 
 app.UseAntiforgery();
 

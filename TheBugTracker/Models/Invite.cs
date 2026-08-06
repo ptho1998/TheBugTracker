@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
 using System.ComponentModel.DataAnnotations;
+using TheBugTracker.Client.Models;
 
 namespace TheBugTracker.Models
 {
@@ -26,10 +27,10 @@ namespace TheBugTracker.Models
         public Guid CompanyToken { get; set; }
 
         [Required, EmailAddress]
-        public string? InviteEmail { get; set; }
+        public string? InviteeEmail { get; set; }
 
         [Required]
-        public string? InviteeFistName { get; set; }
+        public string? InviteeFirstName { get; set; }
 
         [Required]
         public string? InviteeLastName { get; set; }
@@ -54,5 +55,31 @@ namespace TheBugTracker.Models
         public string? InviteeId { get; set; }
 
         public virtual ApplicationUser? Invitee { get; set; }
+    }
+
+    public static class InviteExtensions
+    {
+        public static InviteDTO ToDTO(this Invite invite)
+        {
+            InviteDTO dto = new()
+            {
+                Id = invite.Id,
+                InviteDate = invite.InviteDate,
+                JoinDate = invite.JoinDate,
+                InviteeEmail = invite.InviteeEmail,
+                InviteeFirstName = invite.InviteeFirstName,
+                InviteeLastName = invite.InviteeLastName,
+                Message = invite.Message,
+                IsValid = invite.IsValid,
+                ProjectId = invite.ProjectId,
+                Project = invite.Project?.ToDTO(),
+                InvitorId = invite.InvitorId,
+                Invitor = invite.Invitor?.ToDTO(),
+                InviteeId = invite.InviteeId,
+                Invitee = invite.Invitee?.ToDTO(),
+            };
+
+            return dto;
+        }
     }
 }

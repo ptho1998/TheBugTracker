@@ -5,6 +5,7 @@
 @using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
+@using TheBugTracker.Client.Models.Enums
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
@@ -16,72 +17,252 @@
 @inject ApplicationDbContext context
 
 
-<div class="container-xxl my-3">
-    <PageTitle>Register</PageTitle>
+<PageTitle>Register | The Bug Tracker</PageTitle>
 
-    <h1>Register</h1>
+<MudContainer MaxWidth="MaxWidth.Large"  
+              Class="d-flex flex-column align-items-center justify-content-center px-3 h-100 mt-2">
+    <MudPaper Class="p-3">
+        <MudText Typo="Typo.h3" GutterBottom>Register</MudText>
 
-    <div class="row">
-        <div class="col-lg-6">
-            <StatusMessage Message="@Message" />
-            <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register" enctype="multipart/form-data">
-                <DataAnnotationsValidator />
-                <h2>Create a new account.</h2>
-                <hr />
-                <ValidationSummary class="text-danger" role="alert" />
-                <div class="form-floating mb-3">
-                    <InputText id="firstName" @bind-Value="Input.FirstName" class="form-control" aria-required="true" placeholder="First Name" />
-                    <label for="firstName">First Name</label>
-                    <ValidationMessage For="() => Input.FirstName" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText id="lastName" @bind-Value="Input.LastName" class="form-control" aria-required="true" placeholder="Last Name" />
-                    <label for="lastName">Last Name</label>
-                    <ValidationMessage For="() => Input.LastName" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText id="lastName" @bind-Value="Input.LastName" class="form-control" aria-required="true" placeholder="Last Name" />
-                    <label for="lastName">Last Name</label>
-                    <ValidationMessage For="() => Input.LastName" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                    <label for="Input.Email">Email</label>
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                    <label for="Input.Password">Password</label>
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                    <label for="Input.ConfirmPassword">Confirm Password</label>
-                    <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-                </div>
-                <div class="row mb-3">
-                    <div class="col-lg-4">
-                        <img src="@ImageHelper.DefaultProfilePictureUrl" class="img-fluid" id="profilePicPreview" />
+        <MudText Typo="Typo.body1" GutterBottom>
+            To register a new account, you'll need to create a company to
+            organize your projects and team members. After registering your
+            company, you will be assigned as the administrator of your company.
+            You'll then be able to invite other users to collaborate with you as
+            a part of your company.
+        </MudText>
+
+        <MudText Typo="Typo.body1" GutterBottom>
+            If you'd like to register an account with an exisiting company,
+            please contact an administrator from that company for an invitation
+            to register.
+        </MudText>
+        <StatusMessage Message="@Message" />
+
+        <MudDivider DividerType="DividerType.FullWidth" Light Class="my-3" />
+
+        @* Registration Form *@
+        <EditForm Model="Input"
+                  method="post"
+                  OnValidSubmit="RegisterUser"
+                  FormName="register"
+                  enctype="multipart/form-data">
+            <DataAnnotationsValidator />
+
+            <div class="row">
+                @* profile info *@
+                <div class="col-md-6">
+
+                    <MudText Typo="Typo.h5" GutterBottom>
+                        Create An Account
+                    </MudText>
+
+                    <div class="mb-3">
+                        <MudTextField id="firstName"
+                                      Value="Input.FirstName"
+                                      name="Input.FirstName"
+                                      aria-required="true"
+                                      For="() => Input.FirstName"
+                                      Label="First Name"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
                     </div>
-                    <div class="col-lg-8">
-                        <label class="form-label" for="Input.ProfilePicture">Profile Picture</label>
-                        <input type="file" class="form-control" name="Input.ProfilePicture" accept=".jpg, .jpeg, .png, .svg, .gif"
-                               onchange="document.getElementById('profilePicPreview').src = window.URL.createObjectURL(this.files[0])" />
+
+                    <div class="mb-3">
+                        <MudTextField id="lastName"
+                                      Value="Input.LastName"
+                                      name="Input.LastName"
+                                      aria-required="true"
+                                      For="() => Input.LastName"
+                                      Label="Last Name"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
                     </div>
+
+                    <div class="mb-3">
+                        <MudTextField id="email"
+                                      Value="Input.Email"
+                                      name="Input.Email"
+                                      aria-required="true"
+                                      autocomplete="username"
+                                      For="() => Input.Email"
+                                      Label="Email"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
+                    </div>
+
+                    <div class="mb-3 pw-field">
+                        <MudTextField id="password"
+                                      Value="Input.Password"
+                                      name="Input.Password"
+                                      aria-required="true"
+                                      autocomplete="new-password"
+                                      InputType="InputType.Password"
+                                      For="() => Input.Password"
+                                      Label="Password"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
+                        <button type="button" class="pw-toggle" aria-label="Show password"
+                                onclick="togglePassword('password', this)">
+                            <svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12a4.5 4.5 0 110-9 4.5 4.5 0 010 9zm0-7a2.5 2.5 0 100 5 2.5 2.5 0 000-5z" />
+                            </svg>
+                            <svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display:none">
+                                <path d="M2.71 3.16a.996.996 0 000 1.41l1.97 1.97C3.06 7.83 1.77 9.53 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16a.996.996 0 00-1.42 0zM12 16.5a4.5 4.5 0 01-4.5-4.5c0-.35.04-.68.13-1l1.4 1.4a2.5 2.5 0 002.57 2.57l1.4 1.4c-.32.09-.65.13-1 .13zm7.29-9.34l-1.97-1.97C15.94 4.19 14.06 3.5 12 3.5c-.66 0-1.31.08-1.94.22l1.94 1.94A4.5 4.5 0 0116.5 12l2.79-2.79z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="mb-3 pw-field">
+                        <MudTextField id="confirmPassword"
+                                      Value="Input.ConfirmPassword"
+                                      name="Input.ConfirmPassword"
+                                      aria-required="true"
+                                      autocomplete="new-password"
+                                      InputType="InputType.Password"
+                                      For="() => Input.ConfirmPassword"
+                                      Label="Confirm Password"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
+                        <button type="button" class="pw-toggle" aria-label="Show password"
+                                onclick="togglePassword('confirmPassword', this)">
+                            <svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12a4.5 4.5 0 110-9 4.5 4.5 0 010 9zm0-7a2.5 2.5 0 100 5 2.5 2.5 0 000-5z" />
+                            </svg>
+                            <svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display:none">
+                                <path d="M2.71 3.16a.996.996 0 000 1.41l1.97 1.97C3.06 7.83 1.77 9.53 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16a.996.996 0 00-1.42 0zM12 16.5a4.5 4.5 0 01-4.5-4.5c0-.35.04-.68.13-1l1.4 1.4a2.5 2.5 0 002.57 2.57l1.4 1.4c-.32.09-.65.13-1 .13zm7.29-9.34l-1.97-1.97C15.94 4.19 14.06 3.5 12 3.5c-.66 0-1.31.08-1.94.22l1.94 1.94A4.5 4.5 0 0116.5 12l2.79-2.79z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <MudField Class="mb-3" Label="Profile Picture" Variant="Variant.Outlined">
+                        <div class="hstack gap-3">
+                            <img src="@UploadHelper.DefaultProfilePictureUrl"
+                                 id="profilePicPreview"
+                                 style="object-fit: cover; height: 48px; width: 48px; border-radius: 4px" />
+                            <div>
+                                <input type="file" class="form-control" name="Input.ProfilePicture" accept=".jpg, .jpeg, .png, .svg, .gif"
+                                       onchange="document.getElementById('profilePicPreview').src = window.URL.createObjectURL(this.files[0])" />
+                            </div>
+                        </div>
+                    </MudField>
                 </div>
-                <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-            </EditForm>
-        </div>
-        <div class="col-lg-4 col-lg-offset-2">
-            <section>
-                <h3>Use another service to register.</h3>
-                <hr />
-                <ExternalLoginPicker />
-            </section>
-        </div>
+
+                @* company info *@
+                <div class="col-md-6">
+                    <MudText Typo="Typo.h5" GutterBottom>
+                        Create a company
+                    </MudText>
+
+                    <div class="my-3">
+                        <MudTextField id="companyName"
+                                      Value="Input.CompanyName"
+                                      name="Input.CompanyName"
+                                      aria-required="true"
+                                      For="() => Input.CompanyName"
+                                      Label="Company Name"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel />
+                    </div>
+
+                    <div class="my-3">
+                        <MudTextField id="companyDescription"
+                                      Value="Input.CompanyDescription"
+                                      name="Input.CompanyDescription"
+                                      aria-required="true"
+                                      For="() => Input.CompanyDescription"
+                                      Label="Company Description"
+                                      Variant="Variant.Outlined"
+                                      ShrinkLabel
+                                      Lines="5" />
+                    </div>
+
+                    <MudField Class="mb-3" Label="Company Image" Variant="Variant.Outlined">
+                        <div class="hstack gap-3">
+                            <img src="@UploadHelper.DefaultProfilePictureUrl"
+                                 id="companyImgPreview"
+                                 style="object-fit: cover; height: 48px; width: 48px; border-radius: 4px" />
+                            <div>
+                                <input type="file" class="form-control" name="Input.CompanyImage" accept=".jpg, .jpeg, .png, .svg, .gif"
+                                       onchange="document.getElementById('companyImgPreview').src = window.URL.createObjectURL(this.files[0])" />
+                            </div>
+                        </div>
+                    </MudField>
+
+                </div>
+            </div>
+
+            <MudDivider DividerType="DividerType.FullWidth" Light Class="my-3" />
+
+            <div class="text-center">
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.SupervisorAccount">
+                    Register
+                </MudButton>
+            </div>
+
+        </EditForm>
+    </MudPaper>
+
+    <div class="text-center mt-5">
+        <MudText Typo="Typo.body2">
+            Already have an account?
+        </MudText>
+        <MudLink Href="/Account/Login" Typo="Typo.body2" Color="Color.Tertiary">
+            Click here to log in
+        </MudLink>
     </div>
-</div>
+</MudContainer>
 
+<style>
+    .pw-field {
+        position: relative;
+    }
+
+    .pw-toggle {
+        position: absolute;
+        right: 10px;
+        top: 8px;
+        background: none;
+        border: none;
+        padding: 6px;
+        cursor: pointer;
+        color: var(--mud-palette-text-secondary, #757575);
+        display: inline-flex;
+        z-index: 1;
+    }
+
+        .pw-toggle:hover {
+            color: var(--mud-palette-text-primary, #212121);
+        }
+
+    /* grey out read-only fields to look disabled */
+    .locked-field input {
+        color: var(--mud-palette-text-disabled, rgba(0,0,0,0.38)) !important;
+    }
+</style>
+
+<script>
+    function togglePassword(id, btn) {
+        var el = document.getElementById(id);
+        var input = el && el.tagName === 'INPUT' ? el : (el ? el.querySelector('input') : null);
+        if (!input) return;
+
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+
+        var eye = btn.querySelector('.pw-eye');
+        var eyeOff = btn.querySelector('.pw-eye-off');
+        if (eye && eyeOff) {
+            eye.style.display = showing ? '' : 'none';
+            eyeOff.style.display = showing ? 'none' : '';
+        }
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    }
+</script>
 
 @code {
     private IEnumerable<IdentityError>? identityErrors;
@@ -106,6 +287,26 @@
         user.FirstName = Input.FirstName;
         user.LastName = Input.LastName;
 
+        // create the company
+        user.Company = new Company
+        {
+            Name = Input.CompanyName,
+            Description = Input.CompanyDescription,
+        };
+
+        if (Input.CompanyImage is not null)
+        {
+            try
+            {
+                FileUpload image = await UploadHelper.GetFileUploadAsync(Input.CompanyImage);
+                user.Company.Image = image;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
+
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
         await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
@@ -117,13 +318,16 @@
             return;
         }
 
+        //assign as admin to the company
+        await UserManager.AddToRoleAsync(user, nameof(Role.Admin));
+
         Logger.LogInformation("User created a new account with password.");
 
         if (Input.ProfilePicture is not null)
         {
             try
             {
-                FileUpload profilePic = await ImageHelper.GetImageUploadAsync(Input.ProfilePicture);
+                FileUpload profilePic = await UploadHelper.GetFileUploadAsync(Input.ProfilePicture);
                 user.ProfilePicture = profilePic;
 
                 context.Uploads.Add(profilePic);
@@ -207,6 +411,17 @@
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = "";
 
+        [Display(Name = "Profile Picture")]
         public IFormFile? ProfilePicture { get; set; }
+
+        [Required]
+        [Display(Name = "Company Name")]
+        public string? CompanyName { get; set; }
+
+        [Display(Name = "Company Description")]
+        public string? CompanyDescription { get; set; }
+
+        [Display(Name = "Company Image")]
+        public IFormFile? CompanyImage { get; set; }
     }
 }

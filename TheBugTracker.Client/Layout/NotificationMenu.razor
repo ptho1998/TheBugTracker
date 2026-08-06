@@ -1,0 +1,130 @@
+﻿@inject INotificationDTOService NotificationService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@implements IDisposable
+
+<MudBadge Color="Color.Error"
+          Visible="unreadCount > 0"
+          Content="@unreadCount"
+          Max="99"
+          Origin="Origin.TopRight"
+          Overlap>
+
+    <MudMenu Icon="@Icons.Material.Filled.Notifications"
+             Color="Color.Inherit"
+             AnchorOrigin="Origin.BottomLeft"
+             TransformOrigin="Origin.TopRight"
+             Size="Size.Small"
+             Dense>
+        @if (notifications.Any())
+        {
+            @foreach (NotificationDTO notification in notifications)
+            {
+                <NotificationMenuItem Notification="notification" 
+                                      OnRead="MarkNotificationAsRead"
+                                      OnView="ViewNotification" />
+            }
+        }
+        else
+        {
+            <MudMenuItem Disabled>
+                <div class="py-5 text-center">
+                    <MudText Typo="Typo.button" Color="Color.Tertiary">
+                        No new notifications
+                    </MudText>
+                </div>
+            </MudMenuItem>
+        }
+
+        <MudMenuItem Class="text-center py-3" Href="/notifications">
+            View All
+        </MudMenuItem>
+    </MudMenu>
+
+</MudBadge>
+
+
+@code {
+    private IEnumerable<NotificationDTO> notifications = [];
+
+    private int unreadCount = 0;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshNotifications();
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        InvokeAsync(RefreshNotifications);
+    }
+
+    private async Task RefreshNotifications()
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is not null)
+        {
+            try
+            {
+                notifications = await NotificationService.GetLatestNotificationsAsync(2, userInfo);
+                unreadCount = await NotificationService.GetUnreadCountAsync(userInfo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to load notification", Severity.Error);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task MarkNotificationAsRead(int id)
+    {
+        if (userInfo is not null)
+        {
+            try
+            {
+                await NotificationService.MarkNotificationAsReadAsync(id, userInfo);
+                await RefreshNotifications();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to mark notification as read", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ViewNotification(int id)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == id);
+
+        if (notification is not null && userInfo is not null)
+        {
+            await MarkNotificationAsRead(id);
+
+            string url = notification.Type switch
+            {
+                NotificationType.Company => "company",
+                NotificationType.Project => $"projects/{notification.ProjectId}",
+                NotificationType.Ticket => $"tickets/{notification.TicketId}",
+                _ => "notifications"
+            };
+
+            Nav.NavigateTo(url);
+        }
+    }
+}

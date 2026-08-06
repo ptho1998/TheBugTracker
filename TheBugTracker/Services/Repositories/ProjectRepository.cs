@@ -10,7 +10,8 @@ using TheBugTracker.Services.Interfaces;
 namespace TheBugTracker.Services.Repositories
 {
     public class ProjectRepository(IDbContextFactory<ApplicationDbContext> contextFactory,
-                                   UserManager<ApplicationUser> userManager) : IProjectRepository
+                                   UserManager<ApplicationUser> userManager,
+                                   ICompanyRepository companyRepository) : IProjectRepository
     {
         public async Task<IEnumerable<Project>> GetProjectAsync(UserInfo user)
         {
@@ -87,6 +88,36 @@ namespace TheBugTracker.Services.Repositories
             }
 
             context.Add(project);
+
+            #region notifications
+
+            // notify company admins + project.Members
+            var admins = await companyRepository.GetUsersInRoleAsync(Role.Admin, user);
+
+            List<string> recipientIds = [.. admins.Select(c => c.Id)];
+
+            recipientIds.AddRange(project.Members.Select(m => m.Id));
+
+            foreach (string recipientId in recipientIds.Distinct())
+            {
+                if (recipientId != user.UserId)
+                {
+                    var notification = new Notification
+                    {
+                        Title = "Project Created",
+                        Message = $"Project \"{project.Name}\" has been created",
+                        Created = DateTimeOffset.UtcNow,
+                        RecipientId = recipientId,
+                        SenderId = user.UserId,
+                        Type = NotificationType.Project,
+                    };
+
+                    context.Add(notification);
+                }
+            }
+
+            #endregion
+
             await context.SaveChangesAsync();
 
             return project;
@@ -111,6 +142,27 @@ namespace TheBugTracker.Services.Repositories
                 project.Tickets = [];
 
                 context.Projects.Update(project);
+
+                #region Notifications
+                var projectManager = await GetProjectManagerAsync(project.Id, user);
+
+                if (projectManager is not null && projectManager.Id != user.UserId)
+                {
+                    var notification = new Notification
+                    {
+                        Title = "Project Updated",
+                        Message = $"Project \"{project.Name}\" has been updated",
+                        Created = DateTimeOffset.UtcNow,
+                        RecipientId = projectManager.Id,
+                        SenderId = user.UserId,
+                        Type = NotificationType.Project,
+                        ProjectId = project.Id,
+                    };
+
+                    context.Add(notification);
+                }
+                #endregion
+
                 await context.SaveChangesAsync();
             }
         }
@@ -137,9 +189,37 @@ namespace TheBugTracker.Services.Repositories
                 // if ticket.Archived == true, then the ticket was archived by a user
                 // if ticket.Archived == false, then the ticket will be archived by the project
                 ticket.ArchivedByProject = !ticket.Archived;
-
                 ticket.Archived = true;
+
+                ticket.History.Add(new TicketHistory()
+                {
+                    UserId = user.UserId,
+                    Created = DateTimeOffset.UtcNow,
+                    Description = "Project archived"
+                });
             }
+
+            #region Notifications
+            // notify all project members
+            foreach (ApplicationUser member in project.Members)
+            {
+                if (member.Id != user.UserId)
+                {
+                    var notification = new Notification
+                    {
+                        Title = "Project Archived",
+                        Message = $"Project \"{project.Name}\" has been archived",
+                        RecipientId = member.Id,
+                        SenderId = user.UserId,
+                        Type = NotificationType.Project,
+                        ProjectId = project.Id,
+                        Created = DateTimeOffset.UtcNow,
+                    };
+
+                    context.Add(notification);
+                }
+            }
+            #endregion
 
             await context.SaveChangesAsync();
 
@@ -168,7 +248,36 @@ namespace TheBugTracker.Services.Repositories
                 // if ArchivedByProject == false, the ticket was archived before the project and so should remain archived
                 ticket.Archived = !ticket.ArchivedByProject;
                 ticket.ArchivedByProject = false;
+
+                ticket.History.Add(new TicketHistory()
+                {
+                    UserId = user.UserId,
+                    Created = DateTimeOffset.UtcNow,
+                    Description = "Project restored"
+                });
             }
+
+            #region Notifications
+            // notify all project members
+            foreach (ApplicationUser member in project.Members)
+            {
+                if (member.Id != user.UserId)
+                {
+                    var notification = new Notification
+                    {
+                        Title = "Project Restored",
+                        Message = $"Project \"{project.Name}\" has been restored from the archive",
+                        RecipientId = member.Id,
+                        SenderId = user.UserId,
+                        Type = NotificationType.Project,
+                        ProjectId = project.Id,
+                        Created = DateTimeOffset.UtcNow,
+                    };
+
+                    context.Add(notification);
+                }
+            }
+            #endregion
 
             await context.SaveChangesAsync();
         }
@@ -210,6 +319,44 @@ namespace TheBugTracker.Services.Repositories
 
             // assign the user to the project and save to the DB
             project.Members.Add(newMember);
+
+            #region Notifications
+            // notify newMember
+            var memberNotification = new Notification
+            {
+                Title = "Assigned to Project",
+                Message = $"You have been assigned to a new project: {project.Name}",
+                RecipientId = userId,
+                SenderId = user.UserId,
+                Created = DateTimeOffset.UtcNow,
+                Type = NotificationType.Project,
+                ProjectId = projectId,
+            };
+
+            context.Add(memberNotification);
+
+            // if this is done by an admin, notify the PM
+            if (user.IsInRole(Role.Admin))
+            {
+                ApplicationUser? projectManager = await GetProjectManagerAsync(projectId, user);
+                if (projectManager != null)
+                {
+                    var pmNotification = new Notification
+                    {
+                        Title = "New Member Assigned to Project",
+                        Message = $"{newMember.FirstName} {newMember.LastName} has been assigned to your project: {project.Name}",
+                        RecipientId = projectManager.Id,
+                        SenderId = user.UserId,
+                        Created = DateTimeOffset.UtcNow,
+                        Type = NotificationType.Project,
+                        ProjectId = projectId,
+                    };
+
+                    context.Add(pmNotification);
+                }
+            }
+            #endregion
+
             await context.SaveChangesAsync();
         }
 
@@ -238,6 +385,45 @@ namespace TheBugTracker.Services.Repositories
             }
 
             project.Members.Remove(member);
+
+            #region Notifications
+            // notify the removed member
+            var memberNotification = new Notification
+            {
+                Title = "Removed from Project",
+                Message = $"You have been removed from the following project: {project.Name}",
+                RecipientId = member.Id,
+                SenderId = user.UserId,
+                Created = DateTimeOffset.UtcNow,
+                Type = NotificationType.Project,
+                ProjectId = projectId,
+            };
+
+            context.Add(memberNotification);
+
+            // if removed by an admin, notify the PM
+            if (user.IsInRole(Role.Admin))
+            {
+                ApplicationUser? projectManager = await GetProjectManagerAsync(projectId, user);
+
+                if (projectManager != null)
+                {
+                    var pmNotification = new Notification
+                    {
+                        Title = "Member Removed from Project",
+                        Message = $"{member.FirstName} {member.LastName} has been removed from your project {project.Name}",
+                        RecipientId = projectManager.Id,
+                        SenderId = user.UserId,
+                        Created = DateTimeOffset.UtcNow,
+                        Type = NotificationType.Project,
+                        ProjectId = projectId,
+                    };
+
+                    context.Add(pmNotification);
+                }
+            }
+            #endregion
+
             await context.SaveChangesAsync();
         }
 
@@ -303,9 +489,38 @@ namespace TheBugTracker.Services.Repositories
             {
                 ApplicationUser userToRemove = project.Members.First(m  => m.Id == oldManager.Id);
                 project.Members.Remove(userToRemove);
+
+                // notify the old PM
+                var oldPmNotification = new Notification
+                {
+                    Title = "Project Unassigned",
+                    Message = $"You have been removed as the project manager of {project.Name}",
+                    RecipientId = userToRemove.Id,
+                    SenderId = userInfo.UserId,
+                    Created = DateTimeOffset.UtcNow,
+                    Type = NotificationType.Project,
+                    ProjectId = projectId,
+                };
+
+                context.Add(oldPmNotification);
             }
 
             project.Members.Add(newManager);
+
+            // notify the new PM
+            var newPmNotification = new Notification
+            {
+                Title = "New Project Assigned",
+                Message = $"You have been assigned as the Project Manager for a new project: {project.Name}",
+                RecipientId = managerId,
+                SenderId = userInfo.UserId,
+                Created = DateTimeOffset.UtcNow,
+                Type = NotificationType.Project,
+                ProjectId = projectId,
+            };
+
+            context.Add(newPmNotification);
+
             await context.SaveChangesAsync();
         }
 
@@ -327,7 +542,22 @@ namespace TheBugTracker.Services.Repositories
                 if (await userManager.IsInRoleAsync(member, nameof(Role.ProjectManager)) == true)
                 {
                     project.Members.Remove(member);
+
+                    var notification = new Notification
+                    {
+                        Title = "Project Unassigned",
+                        Message = $"You have been removed as the Project Manager of {project.Name}",
+                        RecipientId = member.Id,
+                        SenderId = userInfo.UserId,
+                        Created = DateTimeOffset.UtcNow,
+                        Type = NotificationType.Project,
+                        ProjectId = projectId,
+                    };
+
+                    context.Add(notification);
+
                     await context.SaveChangesAsync();
+
                     return;
                 }
             }

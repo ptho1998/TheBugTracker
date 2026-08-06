@@ -10,46 +10,70 @@
 @inject ApplicationDbContext context
 
 
-<PageTitle>Profile</PageTitle>
+<PageTitle>Profile | The Bug Tracker</PageTitle>
 
-<h3>Profile</h3>
+<MudText Typo="Typo.h5">Profile</MudText>
 <StatusMessage />
+<MudDivider Light DividerType="DividerType.FullWidth" />
 
-<div class="row">
-    <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post" enctype="multipart/form-data">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
-            </div>
-            <div class="form-floating mb-3">
-                <InputText id="firstName" @bind-Value="Input.FirstName" class="form-control" placeholder="Please enter your first name." />
-                <label for="firstName" class="form-label">First Name</label>
-                <ValidationMessage For="() => Input.FirstName" class="text-danger" />
-            </div>
+<EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post" enctype="multipart/form-data">
+    <DataAnnotationsValidator />
+    <div class="row mt-4">
 
-            <div class="form-floating mb-3">
-                <InputText id="lastName" @bind-Value="Input.LastName" class="form-control" placeholder="Please enter your last name." />
-                <label for="lastName" class="form-label">Last Name</label>
-                <ValidationMessage For="() => Input.LastName" class="text-danger" />
+        <div class="col-md-6">
+            <div class="vstack gap-3">
+                <ValidationSummary class="text-danger" role="alert" />
+
+                <MudTextField Value="@username"
+                              Placeholder="Please enter your email."
+                              Disabled
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel />
+
+                <MudTextField id="firstName"
+                              Value="Input.FirstName"
+                              name="Input.FirstName"
+                              Placeholder="Please enter your first name."
+                              Label="First Name"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel />
+
+                <MudTextField id="lastName"
+                              Value="Input.LastName"
+                              name="Input.LastName"
+                              Placeholder="Please enter your last name."
+                              Label="Last Name"
+                              Variant="Variant.Outlined"
+                              ShrinkLabel />
+
+                <MudButton ButtonType="ButtonType.Submit"
+                           Size="Size.Large"
+                           Color="Color.Primary"
+                           FullWidth
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Variant="Variant.Filled">
+                    Save
+                </MudButton>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
-            </div>
-            <img src="@profilePictureUrl" class="img-fluid rounded p-3" id="profilePicPreview" />
-            <div class="mb-3">
-                <label for="Input.ProfilePicture" class="form-label">Profile Picture</label>
-                <input type="file" class="form-control" name="Input.ProfilePicture" accept=".jpg, .jpeg, .png, .svg, .gif"
-                       onchange="document.getElementById('profilePicPreview').src = window.URL.createObjectURL(this.files[0])" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
-        </EditForm>
+        </div>
+
+        <div class="col-md-6">
+            <MudField Label="Profile Picture" Variant="Variant.Outlined">
+                <div class="vstack gap-3 align-items-center">
+                    <img src="@profilePictureUrl"
+                         id="profilePicPreview"
+                         style="height: 96px; width: 96px; object-fit: cover; object-position: center; border-radius: 1rem;" />
+                    <div class="mb-3">
+                        <input type="file" class="form-control" name="Input.ProfilePicture" accept=".jpg, .jpeg, .png, .svg, .gif"
+                               onchange="document.getElementById('profilePicPreview').src = window.URL.createObjectURL(this.files[0])" />
+                    </div>
+                </div>
+            </MudField>
+        </div>
     </div>
-</div>
+
+</EditForm>
 
 @code {
     private ApplicationUser? user;
@@ -85,7 +109,7 @@
         Input.FirstName ??= firstName;
         Input.LastName ??= lastName;
 
-        profilePictureUrl = user.ProfilePictureId.HasValue ? $"/uploads/{user.ProfilePictureId}" : ImageHelper.DefaultProfilePictureUrl;
+        profilePictureUrl = user.ProfilePictureId.HasValue ? $"/uploads/{user.ProfilePictureId}" : UploadHelper.DefaultProfilePictureUrl;
     }
 
     private async Task OnValidSubmitAsync()
@@ -103,7 +127,7 @@
             {
 
                 //save the uploaded picture
-                FileUpload newProfilePic = await ImageHelper.GetImageUploadAsync(Input.ProfilePicture);
+                FileUpload newProfilePic = await UploadHelper.GetFileUploadAsync(Input.ProfilePicture);
                 context.Add(newProfilePic);
 
                 //delete the old picture

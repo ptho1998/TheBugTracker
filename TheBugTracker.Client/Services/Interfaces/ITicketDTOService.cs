@@ -99,5 +99,29 @@ namespace TheBugTracker.Client.Services.Interfaces
         /// <param name="id">The ID of the comment to delete</param>
         /// <param name="userInfo">The current user's claims</param>
         Task DeleteCommentAsync(int id, UserInfo userInfo);
+
+        /// <summary>
+        /// Creates a new ticket attachment for a given ticket,
+        /// if the user is authorized to do so. Users must be
+        /// assigned to the ticket, the ticket's Project Manager,
+        /// or an admin to create attachments.
+        /// </summary>
+        /// <param name="attachment">The details of the attachment</param>
+        /// <param name="fileData">The file data of the uploaded file</param>
+        /// <param name="contentType">The content type of the uploaded file</param>
+        /// <param name="userInfo">The claims of the current user</param>
+        /// <returns>The created TicketAttachmentDTO after being saved in the database</returns>
+        Task<TicketAttachmentDTO> CreateTicketAttachmentAsync(
+            TicketAttachmentDTO attachment, byte[] fileData, string contentType, UserInfo userInfo
+        );
+
+        /// <summary>
+        /// Deletes a ticket attachment by ID, if the user is authorized
+        /// to do so. Users must be either the owner of the attachment
+        /// or an admin of the company the attachment belongs to
+        /// </summary>
+        /// <param name="id">The ID of the attachment</param>
+        /// <param name="userInfo">The claims of the current user</param>
+        Task DeleteTicketAttachmentAsync(int id, UserInfo userInfo);
     }
 }

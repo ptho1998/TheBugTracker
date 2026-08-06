@@ -34,11 +34,10 @@ namespace TheBugTracker.Models
                 ImageUrl = company.ImageId.HasValue
                     ? $"api/uploads/{company.ImageId}"
                     : $"https://api.dicebear.com/10.x/glass/svg?seed={company.Name}",
-                Projects = [..company.Projects.Select(p => new ProjectDTO())],
-                Members = [.. company.Members.Select(u => u.ToDTO())]
-                    // TODO: invites
+                Projects = [.. company.Projects.Select(p => p.ToDTO())],
+                Members  = [.. company.Members.Select(u => u.ToDTO())],
+                Invites  = [.. company.Invites.Select(i => i.ToDTO())]
             };
-
             return dto;
         }
     }

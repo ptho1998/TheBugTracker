@@ -1,0 +1,174 @@
+﻿@inject ISnackbar Snackbar
+
+@if (Company is not null)
+{
+    if(editing == false)
+    {
+        <div class="hstack gap-3 align-items-start">
+            <MudImage Src="@Company.ImageUrl"
+                      Class="rounded-3"
+                      Height="96"
+                      Width="96"
+                      ObjectFit="ObjectFit.Cover"
+                      ObjectPosition="ObjectPosition.Center"
+                      Elevation="3" />
+            <div>
+                <MudText Typo="Typo.h5" GutterBottom>@Company.Name</MudText>
+                <MudText Typo="Typo.body1">@Company.Description</MudText>
+            </div>
+        </div>
+
+        <AuthorizeView Roles="@nameof(Role.Admin)">
+            <MudButton Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit"
+                       Class="mt-3"
+                       Size="Size.Small"
+                       OnClick="() => editing = true">
+                Edit
+            </MudButton>
+        </AuthorizeView>
+    }
+    else
+    {
+        <EditForm Model="formCompany" OnValidSubmit="HandleSaveChanges"> 
+            <DataAnnotationsValidator/>
+            <div class="hstack gap-3 align-items-start">
+                <MudFileUpload T="IBrowserFile"
+                               Accept=".png, .jpg, .jpeg, .svg, .webp"
+                               FilesChanged="HandleImageSelected">
+                    <CustomContent Context="fileUpload">
+                        <div class="vstack gap-2 align-items-center">
+                            <MudImage Src="@formCompany.ImageUrl"
+                                      Class="rounded-3"
+                                      Height="96"
+                                      Width="96"
+                                      ObjectFit="ObjectFit.Cover"
+                                      ObjectPosition="ObjectPosition.Center"
+                                      Elevation="3" />
+
+                            <MudButton Color="Color.Primary" 
+                                       Variant="Variant.Text" 
+                                       Size="Size.Small" 
+                                       @onclick="fileUpload.OpenFilePickerAsync">
+                                Change Image
+                            </MudButton>
+                        </div>
+                    </CustomContent>
+                    <SelectedTemplate Context="files" />
+                </MudFileUpload>
+
+                <div class="flex-grow-1"> 
+                    <MudTextField @bind-Value="formCompany.Name"
+                                  For="() => formCompany.Name"
+                                  Variant="Variant.Outlined"
+                                  Label="Company Name" />
+
+                    <MudTextField @bind-Value="formCompany.Description"
+                                  For="() => formCompany.Description"
+                                  Variant="Variant.Outlined"
+                                  Label="Description"
+                                  Sizing="InputSizing.Auto"
+                                  Lines="4"
+                                  MaxLines="10" />
+                </div>
+
+            </div>
+            <div class="mt-3 hstack gap-2">
+                <MudButton Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Cancel"
+                           ButtonType="ButtonType.Button"
+                           Variant="Variant.Outlined"
+                           OnClick="HandleCancelChanges">
+                    Cancel
+                </MudButton>
+                <MudButton Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary">
+                    Save Changes
+                </MudButton>
+            </div>
+
+        </EditForm>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public CompanyDTO? Company { get; set; }
+
+    [Parameter]
+    public EventCallback<CompanyDTO> OnSave { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private CompanyDTO formCompany = new();
+
+    private bool editing = false;
+
+    protected override void OnParametersSet()
+    {
+        if (Company is not null)
+        {
+            formCompany = new CompanyDTO
+            {
+                Name = Company.Name,
+                Description = Company.Description,
+                ImageUrl = Company.ImageUrl,
+            };
+        }
+    }
+
+    private void HandleCancelChanges()
+    {
+        if (Company is not null)
+        {
+            formCompany = new CompanyDTO
+            {
+                Name = Company.Name,
+                Description = Company.Description,
+                ImageUrl = Company.ImageUrl,
+            };
+        }
+
+        editing = false;
+    }
+
+    private async Task HandleSaveChanges()
+    {
+        AuthenticationState authState = await AuthStateTask;
+
+        if (authState.User.IsInRole(nameof(Role.Admin)))
+        {
+            await OnSave.InvokeAsync(formCompany);
+        }
+
+        editing = false;
+    }
+
+    private async Task HandleImageSelected(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            formCompany.ImageUrl = Company?.ImageUrl ?? formCompany.ImageUrl;
+        }
+        else
+        {
+            try
+            {
+                // read the file into a data URL and assign it to formCompany.ImageUrl
+                byte[] imageData = await BrowserFileHelper.GetFileData(file);
+                string base64String = Convert.ToBase64String(imageData);
+
+                formCompany.ImageUrl = $"data:{file.ContentType};base64,{base64String}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add($"Please select a valid image that is less than {BrowserFileHelper.MaxFileSize} bytes", Severity.Error);
+            }
+        }
+    }
+}

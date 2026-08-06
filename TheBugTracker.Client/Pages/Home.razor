@@ -1,46 +1,337 @@
 ﻿@page "/"
-@inject ICompanyDTOService CompanyService
+@attribute [ExcludeFromInteractiveRouting]
+@layout StaticLayout
+@inject NavigationManager Nav
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home | The Bug Tracker</PageTitle>
 
-<div class="p-5">
-    <h1>Welcome to the Bug Trackers !</h1>
+<div id="hero">
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5 d-flex flex-column justify-content-center">
+        <div class="text-center">
+            <img src="images/TheBugTrackerLogoWhtV3.png" id="logo" />
+        </div>
+        <div id="cta" class="row g-3 text-light">
+            <div class="col-md-7 text-center text-md-start">
+                Streamline your development process with the ultimate
+                project management solution designed to help you identify,
+                prioritize, and resolve issues faster than ever. Start
+                enhancing your team's productivity today!
+            </div>
+            <div class="col-5 d-flex justify-content-center align-items-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Href="account/login"
+                           Size="Size.Large"
+                           EndIcon="@Icons.Material.Filled.DoubleArrow">
+                    <span class="px-4">
+                        Try it Now
+                    </span>
+                </MudButton>
+            </div>
+        </div>
+    </MudContainer>
+    <div id="scroll-next" class="text-center">
+        <a href="#tech">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowDownward"
+                     Size="Size.Large" />
+        </a>
+    </div>
 </div>
+<section id="tech">
+    <MudContainer MaxWidth="MaxWidth.Large">
+        <MudText Typo="Typo.h4" GutterBottom>
+            Cutting Edge Technology
+        </MudText>
+        <MudText Typo="Typo.body1">
+            Built with the latest technology to provide a seamless user experience,
+            our platform ensures lightning-fast performance, robust scalability,
+            and secure collaboration. From intuitive interfaces to powerful integrations,
+            everything is designed to keep your workflow smooth and efficient.
+        </MudText>
+    </MudContainer>
+    <div class="hstack flex-wrap gap-1">
+        @foreach (Technology tech in technologies)
+        {
+            <a href="@tech.Url" target="_blank">
+                <MudChip T="string"
+                         Size="Size.Large"
+                         Color="Color.Dark">
+                    <AvatarContent>
+                        <MudAvatar>
+                            <MudImage Src="@tech.Image" />
+                        </MudAvatar>
+                    </AvatarContent>
+                    <ChildContent>
+                        @tech.Name
+                    </ChildContent>
+                </MudChip>
+            </a>
+        }
+    </div>
+</section>
+<section id="portfolio">
+    @* want to work together? *@
+    <MudContainer MaxWidth="MaxWidth.Medium">
+        <div class="vstack gap-3 align-items-center">
+            <MudText Typo="Typo.h4" GutterBottom>
+                Want to Learn How to Build This?
+            </MudText>
+            <MudText Typo="Typo.body1" GutterBottom>
+                Take your skills to the next level by learning how to build this application
+                from the ground up! Our Full-Stack Blazor course will guide you through the
+                entire development process of building enterprise-grade applications, including
+                this one. Check out
+                <MudLink Href="https://coderfoundry.com" Color="Color.Secondary">
+                    coderfoundry.com
+                </MudLink>
+                and start your journey today!
+            </MudText>
+            <img src="images/CF_Logo_NO.png" style="max-height: 4rem;" />
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       Size="Size.Large"
+                       Href="https://coderfoundry.com">
+                Learn More
+            </MudButton>
+        </div>
+    </MudContainer>
+</section>
+<section id="features">
+    <MudContainer MaxWidth="MaxWidth.Large">
+        <MudText Typo="Typo.h4" GutterBottom>
+            Productivity Focused Features
+        </MudText>
 
-@* <MudPaper Class="my-3 p-3">
-    <MudButton Color="Color.Primary" Variant="Variant.Filled">Primary Button</MudButton>
-    <MudButton Color="Color.Secondary" Variant="Variant.Filled">Secondary Button</MudButton>
-    <MudButton Color="Color.Tertiary" Variant="Variant.Filled">Tertiary Button</MudButton>
-    <MudButton Color="Color.Success" Variant="Variant.Filled">Success Button</MudButton>
-    <MudButton Color="Color.Info" Variant="Variant.Filled">Info Button</MudButton>
-    <MudButton Color="Color.Warning" Variant="Variant.Filled">Warning Button</MudButton>
-    <MudButton Color="Color.Error" Variant="Variant.Filled">Error Button</MudButton>
-    <MudButton Color="Color.Dark" Variant="Variant.Filled">Dark Button</MudButton>
-</MudPaper>
+        <MudText Typo="Typo.body1" GutterBottom>
+            Equipped with intuitive tools like real-time updates, customizable issue tracking,
+            and detailed reporting, our platform is designed to help you stay organized and
+            focused. Everything you need to manage your tasks efficiently is right at your
+            fingertips.
+        </MudText>
 
-<MudPaper Class="my-3 p-3">
-    <MudButton Color="Color.Primary" Variant="Variant.Outlined">Primary Button</MudButton>
-    <MudButton Color="Color.Secondary" Variant="Variant.Outlined">Secondary Button</MudButton>
-    <MudButton Color="Color.Tertiary" Variant="Variant.Outlined">Tertiary Button</MudButton>
-    <MudButton Color="Color.Success" Variant="Variant.Outlined">Success Button</MudButton>
-    <MudButton Color="Color.Info" Variant="Variant.Outlined">Info Button</MudButton>
-    <MudButton Color="Color.Warning" Variant="Variant.Outlined">Warning Button</MudButton>
-    <MudButton Color="Color.Error" Variant="Variant.Outlined">Error Button</MudButton>
-    <MudButton Color="Color.Dark" Variant="Variant.Outlined">Dark Button</MudButton>
-</MudPaper>
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Multi-Tenancy
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    Our platform is built with multi-tenancy in mind, allowing each company
+                    to have its own secure and isolated workspace. Easily register your
+                    company to start tracking projects, and invite team members to
+                    collaborate with confidence. With robust a focus on security, your
+                    data remains private and fully separated from other organizations,
+                    ensuring a tailored experience for your team.
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/invites.png" />
+        </MudPaper>
 
-<MudPaper Class="my-3 p-3">
-    <MudButton Color="Color.Primary" Variant="Variant.Text">Primary Button</MudButton>
-    <MudButton Color="Color.Secondary" Variant="Variant.Text">Secondary Button</MudButton>
-    <MudButton Color="Color.Tertiary" Variant="Variant.Text">Tertiary Button</MudButton>
-    <MudButton Color="Color.Success" Variant="Variant.Text">Success Button</MudButton>
-    <MudButton Color="Color.Info" Variant="Variant.Text">Info Button</MudButton>
-    <MudButton Color="Color.Warning" Variant="Variant.Text">Warning Button</MudButton>
-    <MudButton Color="Color.Error" Variant="Variant.Text">Error Button</MudButton>
-    <MudButton Color="Color.Dark" Variant="Variant.Text">Dark Button</MudButton>
-</MudPaper> *@
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Role-Based Access Control
+                </MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    Maintain clarity and security with our role-based access control system,
+                    designed to fit the needs of every team. With four distinct roles –
+                    Admin, Project Manager, Developer, and Submitter – you can define
+                    precise levels of access and responsibility.
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    Admins manage the entire workspace, Project Managers oversee projects,
+                    Developers focus on resolving issues, and Submitters report bugs. This
+                    structure ensures that every user has the tools and permissions they
+                    need to stay productive while keeping your data secure.
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/roles.png" />
+        </MudPaper>
 
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Project Management
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    Effortlessly organize your work with our comprehensive project
+                    management tools. Projects are created on a per-company basis,
+                    complete with start and end dates to keep timelines clear and
+                    actionable. Assign a dedicated Project Manager to oversee progress
+                    and build a custom team of Developers and Submitters to collaborate
+                    efficiently. With these features, your projects stay on track, and
+                    your team stays aligned from start to finish.
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/project.png" />
+        </MudPaper>
+
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Ticket-Based Tracking
+                </MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    Keep your workflows organized and transparent with our powerful
+                    ticket-based tracking system. Anyone can submit tickets, which can
+                    then be assigned to developers for resolution. Each ticket includes
+                    key details like priority, type, and status, ensuring your team
+                    stays focused on what matters most.
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    Collaborate seamlessly with comment threads for discussions, upload
+                    file attachments for context, and view a detailed history of activity
+                    to track progress every step of the way.
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/ticket.png" />
+        </MudPaper>
+
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Real Time Notifications
+                </MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    Never miss a beat with our comprehensive notification system, keeping
+                    users informed about the updates that matter most. Whether it's a
+                    Project Manager being alerted to new tickets or team assignments,
+                    a Developer or Submitter staying updated on changes to their tickets,
+                    or an Admin tracking new user activity, notifications are tailored
+                    to each role and user.
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    By focusing on relevant actions, our system ensures your team stays
+                    in sync and highlights the information most important to them.
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/notifications-menu.png" />
+        </MudPaper>
+
+        <MudPaper Class="feature">
+            <div class="description">
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Comprehensive API Documentation
+                </MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    Explore the full capabilities of our platform with detailed API documentation,
+                    including an OpenAPI specification. Whether you're looking to understand how
+                    the system works under the hood or leverage advanced features, our API
+                    documentation provides clear explanations, comprehensive examples, and
+                    everything you need to make the most of the platform.
+                </MudText>
+                <MudText Typo="Typo.body1">
+                    Check out our <MudLink Href="scalar/v1" Target="_blank" Color="Color.Tertiary">API Docs</MudLink>
+                    with a UI powered by Scalar to try it out!
+                </MudText>
+            </div>
+            <img class="screenshot" src="images/screenshots/api-spec.png" />
+        </MudPaper>
+    </MudContainer>
+</section>
+<section id="demo">
+    <MudContainer MaxWidth="MaxWidth.Medium">
+        <MudText Typo="Typo.h4" GutterBottom>
+            Ready to Check it Out?
+        </MudText>
+        <MudText Typo="Typo.body1" GutterBottom>
+            Experience the power of The Bug Tracker firsthand! Register
+            your company today to get started, or log in as a demo user
+            to explore all the features and see how it can transform your
+            workflow.
+        </MudText>
+        <div class="d-flex justify-content-center align-items-center gap-3 my-4">
+            <MudButton Variant="Variant.Filled"
+                       Size="Size.Large"
+                       Color="Color.Primary"
+                       Href="account/register">
+                Register
+            </MudButton>
+            <MudDivider Light DividerType="DividerType.Middle" FlexItem Vertical />
+            <MudButton Variant="Variant.Filled"
+                       Size="Size.Large"
+                       Color="Color.Secondary"
+                       Href="account/login">
+                Demo Login
+            </MudButton>
+        </div>
+    </MudContainer>
+</section>
 
 @code{
+    [CascadingParameter]
+    public Task<AuthenticationState>? AuthStateTask { get; set; }
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is not null)
+        {
+            AuthenticationState authState = await AuthStateTask;
+
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                Nav.NavigateTo("dashboard");
+            }
+        }
+    }
+
+    private record Technology(string Name, string Image, string Url);
+
+    private static List<Technology> technologies = new()
+    {
+        new Technology(
+            Name: "Blazor",
+            Image: "images/logos/blazor-original.svg",
+            Url: "https://dotnet.microsoft.com/en-us/apps/aspnet/web-apps/blazor"
+        ),
+        new Technology(
+            Name: "ASP.NET Core",
+            Image: "images/logos/dotnetcore-original.svg",
+            Url: "https://dotnet.microsoft.com/en-us/apps/aspnet"
+        ),
+        new Technology(
+            Name: "PostgreSQL",
+            Image: "images/logos/postgresql-original.svg",
+            Url: "https://postgresql.org/"
+        ),
+        new Technology(
+            Name: "WebAssembly",
+            Image: "images/logos/wasm-original.svg",
+            Url: "https://webassembly.org/"
+        ),
+        new Technology(
+            Name: "SignalR",
+            Image: "images/logos/icon-tech-signalR.webp",
+            Url: "https://dotnet.microsoft.com/en-us/apps/aspnet/signalr"
+        ),
+        new Technology(
+            Name: "Bootstrap",
+            Image: "images/logos/bootstrap-original.svg",
+            Url: "https://getbootstrap.com"
+        ),
+        new Technology(
+            Name: "MudBlazor",
+            Image: "images/logos/mudblazor.svg",
+            Url: "https://mudblazor.com"
+        ),
+        new Technology(
+            Name: "Railway",
+            Image: "images/logos/railway-original.svg",
+            Url: "https://railway.com"
+        ),
+        new Technology(
+            Name: "SendGrid",
+            Image: "images/logos/sendgrid-1-logo-png-transparent.png",
+            Url: "https://sendgrid.com"
+        ),
+        new Technology(
+            Name: "Apex Charts",
+            Image: "images/logos/apexchart_logo.png",
+            Url: "https://apexcharts.com"
+        ),
+        new Technology(
+            Name: "Scalar API Docs",
+            Image: "images/logos/scalar.svg",
+            Url: "https://scalar.com"
+        ),
+    };
 }

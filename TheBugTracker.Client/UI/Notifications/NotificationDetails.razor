@@ -1,0 +1,34 @@
+﻿@if (Notification is not null)
+{
+    @* title *@
+    <div class="hstack gap-2">
+        <MudText Typo="Typo.body1" Class="fw-bold">
+            @Notification.Title
+        </MudText>
+        <MudBadge Dot
+                  Visible="Notification.HasBeenViewed == false"
+                  Color="Color.Error"
+                  Origin="Origin.CenterCenter" />
+    </div>
+
+    @* message *@
+    <MudText Typo="Typo.body2">
+        @Notification.Message
+    </MudText>
+
+    @* user + date *@
+    <div class="hstack gap-2">
+        @if (Notification.Sender is not null)
+        {
+            <UserChip User="Notification.Sender" />
+        }
+        <MudText Typo="Typo.subtitle2">
+            @Notification.Created.ToString("g")
+        </MudText>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public NotificationDTO? Notification { get; set; }
+}

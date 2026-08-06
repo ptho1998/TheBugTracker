@@ -8,6 +8,34 @@ namespace TheBugTracker.Client.Services
 {
     public class WASMCompanyDTOService(HttpClient http) : ICompanyDTOService
     {
+        public async Task<CompanyDTO> GetCompanyAsync(UserInfo userInfo)
+        {
+            CompanyDTO company = await http.GetFromJsonAsync<CompanyDTO>("api/company")
+                ?? throw new HttpIOException(HttpRequestError.InvalidResponse);
+
+            return company;
+        }
+
+        public async Task UpdateCompanyAsync(CompanyDTO company, UserInfo userInfo)
+        {
+            var response = await http.PutAsJsonAsync("api/company", company);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task AssignUserRole(string userId, Role newRole, UserInfo userInfo)
+        {
+            UserDTO dto = new()
+            {
+                Id = userId,
+                Role = newRole,
+                FirstName = "firstName",
+                LastName = "lastName",
+            };
+
+            var response = await http.PutAsJsonAsync($"api/company/users/{userId}", dto);
+            response.EnsureSuccessStatusCode();
+        }
+
         public async Task<IEnumerable<UserDTO>> GetUsersAsync(UserInfo userInfo)
         {
             try
@@ -36,6 +64,14 @@ namespace TheBugTracker.Client.Services
                 Console.WriteLine(ex);
                 return [];
             }
+        }
+
+        public async Task<DashboardDTO> GetDashboardDataAsync(UserInfo userInfo)
+        {
+            DashboardDTO data = await http.GetFromJsonAsync<DashboardDTO>("api/Company/dashboard")
+                ?? throw new HttpIOException(HttpRequestError.InvalidResponse);
+
+            return data;
         }
     }
 }

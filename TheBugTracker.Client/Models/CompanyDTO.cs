@@ -15,7 +15,7 @@ namespace TheBugTracker.Client.Models
 
         public ICollection<ProjectDTO> Projects { get; set; } = [];
 
-        //public virtual ICollection<Invite> Invites { get; set; } = [];
+        public ICollection<InviteDTO> Invites { get; set; } = [];
 
     }
 }

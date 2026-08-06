@@ -1,7 +1,7 @@
 ﻿@inherits LayoutComponentBase
 
 @* Required *@
-<MudThemeProvider Theme="_theme" />
+<MudThemeProvider Theme="Theme" />
 <MudPopoverProvider />
 
 @* Needed for dialogs *@
@@ -17,6 +17,9 @@
         <a href="/">
             <img src="images/TheBugTrackerLogoWhtV3.png" height="30" />
         </a>
+        <div class="ms-auto">
+            <NotificationMenu />
+        </div>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu/>
@@ -44,7 +47,7 @@
         _drawerOpen = !_drawerOpen;
     }
 
-    private static MudTheme _theme = new MudTheme()
+    public static MudTheme Theme { get; } = new MudTheme()
     {
         PaletteLight = new PaletteLight()
         {

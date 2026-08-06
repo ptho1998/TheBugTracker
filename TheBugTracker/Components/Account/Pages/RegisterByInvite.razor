@@ -1,0 +1,422 @@
+﻿@page "/Account/Register/Invite"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using TheBugTracker.Services.Interfaces
+@using TheBugTracker.Client.Models.Enums
+@using TheBugTracker.Client.UserInfoHelper
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject ApplicationDbContext context
+@inject IInviteRepository InviteRepo
+@inject IProjectRepository ProjectRepo
+@inject IUserClaimsPrincipalFactory<ApplicationUser> ClaimsFactory
+
+
+<PageTitle>Register | The Bug Tracker</PageTitle>
+
+<div class="d-flex align-items-center justify-content-center px-3 mt-2" 
+     style="min-height: 100vh">
+    <MudPaper Class="p-3" Style="width: 100%; max-width: 900px">
+        @if (inviteError)
+        {
+            <div class="vstack gap-2">
+                <MudText Typo="Typo.h3" GutterBottom>Uh Oh!</MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    It looks like you clicked an invalid registration
+                    link. If you intended to join a existing company on
+                    The Bug Tracker, please contact the person who invited
+                    you to receive a new link.
+                </MudText>
+                <MudText Typo="Typo.body1" GutterBottom>
+                    If you'd like to register your own company on
+                    The Bug Tracker as an administrator,
+                    <MudLink Href="Account/Register" Color="Color.Secondary">click here</MudLink>
+                    to register a new company and administrator account.
+                </MudText>
+            </div>
+        }
+        else if(invite is not null && Input is not null)
+        {
+            @* Invite PostCard *@
+            <MudPaper Class="p-3 mb-5" Elevation="4">
+                <MudText Typo="Typo.h6" GutterBottom>
+                    You've been invited to join <strong>@invite.Company?.Name</strong> by
+                    <strong>@invite.Invitor?.FirstName @invite.Invitor?.LastName</strong>.
+                </MudText>
+                @if (!string.IsNullOrEmpty(invite.Message))
+                {
+                    <div class="hstack gap-3 align-items-start">
+                        <MudIcon Icon="@Icons.Material.Filled.FormatQuote" Size="Size.Large" />
+                        <div class="vstack">
+                            <MudText Typo="Typo.body2" GutterBottom>
+                                @invite.Message
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                - @invite.Invitor?.FirstName @invite.Invitor?.LastName
+                            </MudText>
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+            <StatusMessage Message="@Message" />
+
+            <MudDivider DividerType="DividerType.FullWidth" Light Class="my-3" />
+
+            @* Registration Form *@
+            <EditForm Model="Input"
+                      method="post"
+                      OnValidSubmit="RegisterUser"
+                      FormName="register"
+                      enctype="multipart/form-data">
+                <DataAnnotationsValidator />
+
+                <MudText Typo="Typo.h5" GutterBottom>
+                    Create An Account
+                </MudText>
+
+                <div class="mb-3">
+                    <MudTextField id="firstName"
+                                  Value="Input.FirstName"
+                                  name="Input.FirstName"
+                                  aria-required="true"
+                                  For="() => Input.FirstName"
+                                  Label="First Name"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                </div>
+
+                <div class="mb-3">
+                    <MudTextField id="lastName"
+                                  Value="Input.LastName"
+                                  name="Input.LastName"
+                                  aria-required="true"
+                                  For="() => Input.LastName"
+                                  Label="Last Name"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                </div>
+
+                <div class="mb-3">
+                    <MudTextField id="email"
+                                  Value="Input.Email"
+                                  name="Input.Email"
+                                  aria-required="true"
+                                  autocomplete="username"
+                                  For="() => Input.Email"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true"
+                                  Class="locked-field"
+                                  ShrinkLabel />
+                </div>
+
+                <div class="mb-3 pw-field">
+                    <MudTextField id="password"
+                                  Value="Input.Password"
+                                  name="Input.Password"
+                                  aria-required="true"
+                                  autocomplete="new-password"
+                                  InputType="InputType.Password"
+                                  For="() => Input.Password"
+                                  Label="Password"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                    <button type="button" class="pw-toggle" aria-label="Show password"
+                            onclick="togglePassword('password', this)">
+                        <svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12a4.5 4.5 0 110-9 4.5 4.5 0 010 9zm0-7a2.5 2.5 0 100 5 2.5 2.5 0 000-5z" />
+                        </svg>
+                        <svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display:none">
+                            <path d="M2.71 3.16a.996.996 0 000 1.41l1.97 1.97C3.06 7.83 1.77 9.53 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16a.996.996 0 00-1.42 0zM12 16.5a4.5 4.5 0 01-4.5-4.5c0-.35.04-.68.13-1l1.4 1.4a2.5 2.5 0 002.57 2.57l1.4 1.4c-.32.09-.65.13-1 .13zm7.29-9.34l-1.97-1.97C15.94 4.19 14.06 3.5 12 3.5c-.66 0-1.31.08-1.94.22l1.94 1.94A4.5 4.5 0 0116.5 12l2.79-2.79z" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="mb-3 pw-field">
+                    <MudTextField id="confirmPassword"
+                                  Value="Input.ConfirmPassword"
+                                  name="Input.ConfirmPassword"
+                                  aria-required="true"
+                                  autocomplete="new-password"
+                                  InputType="InputType.Password"
+                                  For="() => Input.ConfirmPassword"
+                                  Label="Confirm Password"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                    <button type="button" class="pw-toggle" aria-label="Show password"
+                            onclick="togglePassword('confirmPassword', this)">
+                        <svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12a4.5 4.5 0 110-9 4.5 4.5 0 010 9zm0-7a2.5 2.5 0 100 5 2.5 2.5 0 000-5z" />
+                        </svg>
+                        <svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display:none">
+                            <path d="M2.71 3.16a.996.996 0 000 1.41l1.97 1.97C3.06 7.83 1.77 9.53 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16a.996.996 0 00-1.42 0zM12 16.5a4.5 4.5 0 01-4.5-4.5c0-.35.04-.68.13-1l1.4 1.4a2.5 2.5 0 002.57 2.57l1.4 1.4c-.32.09-.65.13-1 .13zm7.29-9.34l-1.97-1.97C15.94 4.19 14.06 3.5 12 3.5c-.66 0-1.31.08-1.94.22l1.94 1.94A4.5 4.5 0 0116.5 12l2.79-2.79z" />
+                        </svg>
+                    </button>
+                </div>
+                <MudField Class="mb-3" Label="Profile Picture" Variant="Variant.Outlined">
+                    <div class="hstack gap-3">
+                        <img src="@UploadHelper.DefaultProfilePictureUrl"
+                             id="profilePicPreview"
+                             style="object-fit: cover; height: 48px; width: 48px; border-radius: 4px" />
+                        <div>
+                            <input type="file" class="form-control" name="Input.ProfilePicture" accept=".jpg, .jpeg, .png, .svg, .gif"
+                                   onchange="document.getElementById('profilePicPreview').src = window.URL.createObjectURL(this.files[0])" />
+                        </div>
+                    </div>
+                </MudField>
+
+                <MudDivider DividerType="DividerType.FullWidth" Light Class="my-3" />
+
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Size="Size.Large"
+                           FullWidth>
+                    Register
+                </MudButton>
+
+            </EditForm>
+        }
+    </MudPaper>
+</div>
+
+<style>
+    .pw-field {
+        position: relative;
+    }
+
+    .pw-toggle {
+        position: absolute;
+        right: 10px;
+        top: 8px;
+        background: none;
+        border: none;
+        padding: 6px;
+        cursor: pointer;
+        color: var(--mud-palette-text-secondary, #757575);
+        display: inline-flex;
+        z-index: 1;
+    }
+
+        .pw-toggle:hover {
+            color: var(--mud-palette-text-primary, #212121);
+        }
+
+    /* grey out read-only fields to look disabled */
+    .locked-field input {
+        color: var(--mud-palette-text-disabled, rgba(0,0,0,0.38)) !important;
+    }
+</style>
+
+<script>
+    function togglePassword(id, btn) {
+        var el = document.getElementById(id);
+        var input = el && el.tagName === 'INPUT' ? el : (el ? el.querySelector('input') : null);
+        if (!input) return;
+
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+
+        var eye = btn.querySelector('.pw-eye');
+        var eyeOff = btn.querySelector('.pw-eye-off');
+        if (eye && eyeOff) {
+            eye.style.display = showing ? '' : 'none';
+            eyeOff.style.display = showing ? 'none' : '';
+        }
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    }
+</script>
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+
+    private Invite? invite;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Token { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Company { get; set; }
+
+    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+
+    private bool inviteError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Token)
+            || string.IsNullOrEmpty(Email)
+            || string.IsNullOrEmpty(Company))
+        {
+            inviteError = true;
+            return;
+        }
+
+        invite = await InviteRepo.GetValidInviteAsync(Token, Email, Company);
+
+        if (invite is null)
+        {
+            inviteError = true;
+            return;
+        }
+
+        Input ??= new InputModel()
+        {
+            Email = invite.InviteeEmail!,
+            FirstName = invite.InviteeFirstName,
+            LastName = invite.InviteeLastName,
+        };
+    }
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        if (invite is null)
+        {
+            inviteError = true;
+            return;
+        }
+
+        var user = CreateUser();
+
+        user.FirstName = Input!.FirstName;
+        user.LastName = Input.LastName;
+        //assign the companyID from the invite
+        user.CompanyId = invite.CompanyId;
+
+        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        // by default, new users are assigned to the Submitter role
+        await UserManager.AddToRoleAsync(user, nameof(Role.Submitter));
+
+        Logger.LogInformation("User created a new account with password.");
+
+        //save profile picture if not null
+        if (Input.ProfilePicture is not null)
+        {
+            try
+            {
+                FileUpload profilePic = await UploadHelper.GetFileUploadAsync(Input.ProfilePicture);
+                user.ProfilePicture = profilePic;
+
+                context.Uploads.Add(profilePic);
+                context.Users.Update(user);
+
+                await context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                //Register the user anyway and let them upload a profile picture later
+                Console.WriteLine(ex.ToString());
+            }
+        }
+
+        //send an account confirmation email
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        // assign the user to the project they were invited to
+        ApplicationUser admin = (invite.Invitor ?? await UserManager.FindByIdAsync(invite.InvitorId!))!;
+        ClaimsPrincipal adminClaims = await ClaimsFactory.CreateAsync(admin);
+        UserInfo adminUserInfo = UserInfoHelper.GetUserInfo(adminClaims)!;
+
+        await ProjectRepo.AddProjectMemberAsync(invite.ProjectId, userId, adminUserInfo);
+
+        // invalidate / "accept" the invite that was just used
+        await InviteRepo.AcceptInviteAsync(invite.Id, user);
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+        }
+        else
+        {
+            await SignInManager.SignInAsync(user, isPersistent: false);
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        public string? FirstName { get; set; }
+
+        [Required]
+        public string? LastName { get; set; }
+
+        [Required]
+        [EmailAddress]
+        [Display(Name = "Email")]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "Password")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm password")]
+        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+
+        public IFormFile? ProfilePicture { get; set; }
+    }
+}

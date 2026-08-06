@@ -131,7 +131,8 @@
                 </MudTabs>
                 <MudButton Size="Size.Small"
                            Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.AddCircle">
+                           StartIcon="@Icons.Material.Filled.AddCircle"
+                           Href="@($"tickets/create?project={Id}")">
                    New Ticket
                 </MudButton>
             </MudPaper>
@@ -274,7 +275,6 @@
                 </DialogActions>
             </MudDialog>
         }
-
 
     }
 </MudContainer>

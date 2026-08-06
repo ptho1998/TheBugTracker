@@ -1,0 +1,174 @@
+﻿@inject IInviteDTOService InviteService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<MudTabs>
+    <MudTabPanel Text="Pending Invites">
+        <MudDataGrid Items="PendingInvites" Elevation="0">
+            <Columns>
+                <TemplateColumn>
+                    <CellTemplate>
+                        <AuthorizeView Roles="@nameof(Role.Admin)" Context="authContext">
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                     Dense
+                                     Size="Size.Small">
+                                <MudMenuItem Icon="@Icons.Material.Filled.Send"
+                                             IconColor="Color.Primary"
+                                             OnClick="() => HandleResendInvite(context.Item.Id)">
+                                    Resend
+                                </MudMenuItem>
+                                <MudMenuItem Icon="@Icons.Material.Filled.Cancel"
+                                             IconColor="Color.Error"
+                                             OnClick="() => HandleCancelInvite(context.Item.Id)">
+                                    Cancel
+                                </MudMenuItem>
+                            </MudMenu>
+                        </AuthorizeView>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Title="Invitee" Property="i => i.InviteeFullName">
+                    <CellTemplate>
+                        <div class="vstack">
+                            <MudText Typo="Typo.body1">
+                                @context.Item.InviteeFullName
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="line-height: 1em">
+                                @context.Item.InviteeEmail
+                            </MudText>
+                        </div>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Title="Project" Property="@(i => i.Project != null ? i.Project.Name : "Unknown")" />
+                <PropertyColumn Title="Sent" Property="i => i.InviteDate" Format="g" />
+            </Columns>
+            <NoRecordsContent>
+                <div class="py-3 text-center">
+                    <MudText Typo="Typo.button" Color="Color.Tertiary">
+                        No Pending Invites
+                    </MudText>
+                </div>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudTabPanel>
+    <MudTabPanel Text="Accepted Invites">
+        <MudDataGrid Items="AcceptedInvites">
+            <Columns>
+                <PropertyColumn Title="Invitee" Property="i => i.InviteeFullName">
+                    <CellTemplate>
+                        <div class="vstack">
+                            <MudText Typo="Typo.body1">
+                                @context.Item.InviteeFullName
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="line-height: 1em">
+                                @context.Item.InviteeEmail
+                            </MudText>
+                        </div>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Title="Project" Property="@(i => i.Project != null ? i.Project.Name : "Unknown")" />
+                <PropertyColumn Title="Sent" Property="i => i.InviteDate" Format="g" />
+            </Columns>
+            <NoRecordsContent>
+                <div class="py-3 text-center">
+                    <MudText Typo="Typo.button" Color="Color.Tertiary">
+                        No Accepted Invites
+                    </MudText>
+                </div>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudTabPanel>
+    <MudTabPanel Text="Cancelled & Expired Invites">
+        <MudDataGrid Items="ExpiredInvites">
+            <Columns>
+                <PropertyColumn Title="Invitee" Property="i => i.InviteeFullName">
+                    <CellTemplate>
+                        <div class="vstack">
+                            <MudText Typo="Typo.body1">
+                                @context.Item.InviteeFullName
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="line-height: 1em">
+                                @context.Item.InviteeEmail
+                            </MudText>
+                        </div>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Title="Project" Property="@(i => i.Project != null ? i.Project.Name : "Unknown")" />
+                <PropertyColumn Title="Sent" Property="i => i.InviteDate" Format="g" />
+            </Columns>
+            <NoRecordsContent>
+                <div class="py-3 text-center">
+                    <MudText Typo="Typo.button" Color="Color.Tertiary">
+                        No Cancelled or Expired Invites
+                    </MudText>
+                </div>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<InviteDTO> Invites { get; set; } = [];
+
+    [Parameter]
+    public EventCallback OnChange { get; set; }
+
+    private IEnumerable<InviteDTO> PendingInvites => Invites.Where(i => i.IsValid == true);
+    private IEnumerable<InviteDTO> AcceptedInvites => Invites.Where(i => i.JoinDate.HasValue || !string.IsNullOrEmpty(i.InviteeId));
+    private IEnumerable<InviteDTO> ExpiredInvites => Invites.Where(i => !i.IsValid && !i.JoinDate.HasValue);
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private async Task HandleCancelInvite(int inviteId)
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is null || !userInfo.IsInRole(Role.Admin))
+        {
+            return;
+        }
+
+        try
+        {
+            await InviteService.CancelInviteAsync(inviteId, userInfo);
+            Snackbar.Add("Invite cancelled", Severity.Success);
+
+            await OnChange.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("An error occurred cancelling the selected invite", Severity.Error);
+        }
+    }
+
+    private async Task HandleResendInvite(int inviteId)
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is null || !userInfo.IsInRole(Role.Admin))
+        {
+            return;
+        }
+
+        try
+        {
+            bool sent = await InviteService.SendInviteAsync(new Uri(Nav.BaseUri), inviteId, userInfo);
+
+            if (!sent)
+            {
+                throw new ApplicationException("SendInviteAsync returned false");
+            }
+
+            Snackbar.Add("Invite sent successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to send invite", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,104 @@
+﻿@inject IDialogService DialogService
+
+@if (Attachment is not null)
+{
+    <MudCard Class="h-100">
+        <MudCardMedia Image="@($"images/png/{extension}.png")"
+                      Style="background-size: contain; border: 8px inset transparent;"
+                      Height="96" />
+
+        <MudCardContent>
+            <MudText Typo="Typo.body1" Class="text-truncate">@Attachment.FileName</MudText>
+            <MudText Typo="Typo.caption">@Attachment.User?.FullName</MudText>
+
+            <MudCollapse Expanded="descriptionExpanded">
+                <MudText Typo="Typo.body2" Class="py-2">
+                    @Attachment.Description
+                </MudText>
+
+                <MudText Typo="Typo.caption">
+                    @Attachment.Created.ToString("g")
+                </MudText>
+            </MudCollapse>
+        </MudCardContent>
+
+        <MudCardActions>
+            <MudIconButton Icon="@Icons.Material.Filled.Info"
+                           Size="Size.Medium" 
+                           OnClick="() => descriptionExpanded = !descriptionExpanded"/>
+
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                           Href="@Attachment.AttachmentUrl"
+                           Target="_blank"
+                           Size="Size.Medium" />
+
+            <MudIconButton Icon="@Icons.Material.Filled.Download"
+                           Href="@($"{Attachment.AttachmentUrl}?download=true")"
+                           Target="_blank"
+                           Size="Size.Medium" />
+
+            @if (canDelete)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Medium"
+                               Class="ms-auto" 
+                               OnClick="HandleDelete" />
+            }
+
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public TicketAttachmentDTO? Attachment { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnDelete { get; set; }
+
+    string extension = "default";
+
+    bool descriptionExpanded = false;
+
+    bool canDelete = false;
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        extension = Path.GetExtension(Attachment?.FileName)?.Trim('.') ?? "default";
+
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (Attachment is not null && userInfo is not null)
+        {
+            canDelete = Attachment.UserId == userInfo.UserId || userInfo.IsInRole(Role.Admin);
+        }
+        else
+        {
+            canDelete = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, "Are you sure you want to delete this attachment?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Attachment", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is true)
+        {
+            await OnDelete.InvokeAsync(Attachment!.Id);
+        }
+    }
+}

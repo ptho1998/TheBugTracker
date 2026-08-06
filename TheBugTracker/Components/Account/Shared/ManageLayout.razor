@@ -1,20 +1,22 @@
 ﻿@inherits LayoutComponentBase
-@layout TheBugTracker.Client.Layout.MainLayout
+@layout TheBugTracker.Client.Layout.StaticLayout
 
-<div class="container-xxl my-3">
-    <h1>Manage your account</h1>
-
-    <div>
-        <h2>Change your account settings</h2>
-        <hr />
-        <div class="row">
-            <div class="col-lg-3">
+<div class="py-3">
+    <MudPaper>
+        <div class="d-flex">
+            <div class="flex-shrink-0">
+                <MudText Typo="Typo.h6" Class="p-3">
+                    Account Settings
+                </MudText>
                 <ManageNavMenu />
             </div>
-            <div class="col-lg-9">
+            <MudDivider DividerType="DividerType.FullWidth"
+                        Light
+                        Vertical
+                        FlexItem />
+            <div class="p-3 flex-grow-1">
                 @Body
             </div>
         </div>
-    </div>
-
+    </MudPaper>
 </div>

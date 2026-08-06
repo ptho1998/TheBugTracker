@@ -4,8 +4,9 @@
 @inject IProjectDTOService ProjectService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject IDialogService DialogService
 
-@if(ticket is not null)
+@if (ticket is not null)
 {
     <PageTitle>@ticket.Title | The Bug Tracker</PageTitle>
 
@@ -53,17 +54,17 @@
                     <MudPaper Class="p-3 h-100">
                         <MudText Typo="Typo.h6">Assigned To:</MudText>
                         <div class="d-flex align-items-center">
-                            @if(assigningDeveloper == false)
+                            @if (assigningDeveloper == false)
                             {
                                 <UserCard User="ticket.DeveloperUser"
-                                            PlaceholderName="Unassigned"
-                                            PlaceholderRole="@Role.Developer.GetDisplayName()" />
+                                          PlaceholderName="Unassigned"
+                                          PlaceholderRole="@Role.Developer.GetDisplayName()" />
                                 @if (userCanEditTicket)
                                 {
                                     <AuthorizeView Roles="@($"{nameof(Role.Admin)}, {nameof(Role.ProjectManager)}")">
                                         <MudIconButton Class="ms-auto"
-                                                        Icon="@Icons.Material.Filled.Edit" 
-                                                        OnClick="() => assigningDeveloper = true"/>
+                                                       Icon="@Icons.Material.Filled.Edit"
+                                                       OnClick="() => assigningDeveloper = true" />
                                     </AuthorizeView>
                                 }
                             }
@@ -91,9 +92,9 @@
                                                    OnClick="UpdateTicket" />
                                 }
                                 <MudIconButton Class="ms-auto"
-                                                Icon="@Icons.Material.Filled.Cancel"
-                                                Color="Color.Error"
-                                                OnClick="() => assigningDeveloper = false" />
+                                               Icon="@Icons.Material.Filled.Cancel"
+                                               Color="Color.Error"
+                                               OnClick="() => assigningDeveloper = false" />
                             }
                         </div>
                     </MudPaper>
@@ -122,7 +123,7 @@
                                 <ChildContent>
                                     @foreach (TicketPriority priority in Enum.GetValues<TicketPriority>())
                                     {
-                                        <MudMenuItem Class="text-center"  
+                                        <MudMenuItem Class="text-center"
                                                      OnClick="@(() => SetTicketPriority(priority))">
                                             <MudChip T="string" Label="true" Color="priority.GetColor()">
                                                 @priority.GetDisplayName()
@@ -160,7 +161,7 @@
                                 <ChildContent>
                                     @foreach (TicketStatus status in Enum.GetValues<TicketStatus>())
                                     {
-                                        <MudMenuItem Class="text-center" 
+                                        <MudMenuItem Class="text-center"
                                                      OnClick="@(() => SetTicketStatus(status))">
                                             <MudChip T="string" Label="true" Color="status.GetColor()">
                                                 @status.GetDisplayName()
@@ -228,10 +229,56 @@
 
             @* comment *@
             <TicketCommentArea Comments="ticket.Comments"
-                               CanComment="userCanEditTicket && !ticket.Archived" 
+                               CanComment="userCanEditTicket && !ticket.Archived"
                                OnAdd="HandleAddComment"
                                OnEdit="HandleEditComment"
-                               OnDelete="HandleDeleteComment"/>
+                               OnDelete="HandleDeleteComment" />
+
+            @* attachments *@
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h6">Attachments</MudText>
+                @if (ticket.Attachments.Any())
+                {
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 my-3 g-3">
+                        @foreach (TicketAttachmentDTO attachment in ticket.Attachments)
+                        {
+                            <div class="col">
+                                <AttachmentCard Attachment="attachment"
+                                                OnDelete="HandleDeleteAttachment" />
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="py-5 text-center">
+                        <MudText Typo="Typo.button" Color="Color.Tertiary">
+                            No Ticket Attachments
+                        </MudText>
+                    </div>
+                }
+
+                @if (userCanEditTicket)
+                {
+                    <MudButton StartIcon="@Icons.Material.Filled.Add"
+                               Variant="Variant.Text"
+                               OnClick="ShowAttachmentDialog">
+                        Upload Attachment
+                    </MudButton>
+                }
+            </MudPaper>
+
+            @* history *@
+            @if (ticket.History.Count > 0)
+            {
+                <MudPaper Class="p-3">
+                    <MudText Typo="Typo.h6" GutterBottom>History</MudText>
+                    <div class="p-3" 
+                         style="max-height: 400px; overflow-y: scroll; border: solid 1px var(--mud-palette-gray-light); border-radius: 4px">
+                        <HistoryTimeline History="ticket.History" />
+                    </div>
+                </MudPaper>
+            }
 
             @* controls *@
             <div class="d-flex">
@@ -276,7 +323,7 @@
 
     @if (userCanEditTicket)
     {
-        <MudMessageBox @ref="archiveConfirmationBox" 
+        <MudMessageBox @ref="archiveDialog"
                        Title="@(ticket.Archived ? "Restore Ticket" : "Archive Ticket")"
                        CancelText="Cancel">
             <MessageContent>
@@ -324,7 +371,9 @@
 
     private IEnumerable<UserDTO> developers = [];
 
-    private MudMessageBox? archiveConfirmationBox;
+    private MudMessageBox? archiveDialog;
+
+    private TicketAttachmentDTO newAttachment = new() { AttachmentUrl = string.Empty };
 
     private List<BreadcrumbItem> breadcrumbs = [];
 
@@ -378,9 +427,9 @@
 
     private async Task HandleToggleArchive()
     {
-        if (userCanEditTicket && archiveConfirmationBox is not null)
+        if (userCanEditTicket && archiveDialog is not null)
         {
-            bool? confirmed = await archiveConfirmationBox.ShowAsync();
+            bool? confirmed = await archiveDialog.ShowAsync();
 
             if (confirmed == true)
             {
@@ -526,6 +575,102 @@
         {
             Console.WriteLine(ex);
             Snackbar.Add("Failed to delete comment", Severity.Error);
+        }
+    }
+
+    private async Task ShowAttachmentDialog()
+    {
+        if (userCanEditTicket == false)
+        {
+            return;
+        }
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,   // try Medium for a wider dialog
+            FullWidth = true,            // fill that max width
+            CloseButton = true,
+            BackdropClick = false        // don't lose input on a stray click
+        };
+
+        var dialog = await DialogService.ShowAsync<AttachmentUploadDialog>(
+            "Upload Attachment", options);
+
+        var result = await dialog.Result;
+
+        if (result is not null
+            && !result.Canceled
+            && result.Data is AttachmentUploadDialog.AttachmentUploadResult data)
+        {
+            await HandleUploadAttachment(data.File, data.Description);
+        }
+    }
+
+    private async Task HandleUploadAttachment(IBrowserFile file, string? description)
+    {
+        if (userCanEditTicket == false)
+        {
+            return;
+        }
+
+        try
+        {
+            // read the contents of the selected file into a byte array
+            byte[] fileData = await BrowserFileHelper.GetFileData(file);
+
+            // build the DTO
+            newAttachment = new TicketAttachmentDTO
+            {
+                UserId = userInfo!.UserId,
+                TicketId = Id,
+                Created = DateTimeOffset.UtcNow,
+                FileName = file.Name,
+                Description = description,
+                AttachmentUrl = string.Empty
+            };
+
+            // save the DTO + file to the database
+            await TicketService.CreateTicketAttachmentAsync(
+                newAttachment, fileData, file.ContentType, userInfo!
+            );
+
+            // update our data on the ticket
+            ticket = await TicketService.GetTicketByIdAsync(Id, userInfo!);
+
+            // inform the user
+            Snackbar.Add("Attachment uploaded successfully!", Severity.Success);
+        }
+        catch (IOException ex) // the file was too large or invalid
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception ex) // something unexpected happened
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to upload attachment", Severity.Error);
+        }
+    }
+
+    private async Task HandleDeleteAttachment(int attachmentId)
+    {
+        TicketAttachmentDTO? attachment = ticket?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
+        bool isAdmin = userInfo?.IsInRole(Role.Admin) == true;
+
+        if (attachment is not null && (attachment.UserId == userInfo?.UserId || isAdmin))
+        {
+            try
+            {
+                await TicketService.DeleteTicketAttachmentAsync(attachmentId, userInfo!);
+                ticket = await TicketService.GetTicketByIdAsync(Id, userInfo!);
+
+                Snackbar.Add("Attachment deleted", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to delete the selected attachment", Severity.Error);
+            }
         }
     }
 }

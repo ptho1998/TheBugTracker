@@ -1,0 +1,139 @@
+﻿@page "/company"
+@attribute [Authorize]
+@inject ICompanyDTOService CompanyService
+@inject IInviteDTOService InviteService
+@inject ISnackbar Snackbar
+
+<PageTitle>My Company | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="h-100">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading your company details ... " />
+    }
+    else if (company is null)
+    {
+        <div class="h-100 d-flex align-items-center justify-content-center flex-column">
+            <MudText Typo="Typo.body1" GutterBottom>
+                Something went wrong loading your company
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Tertiary" OnClick="OnInitializedAsync">
+                Try Again?
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="vstack gap-3">
+            <MudPaper Class="p-3">
+                <CompanyInfo Company="company" OnSave="HandleUpdateCompany" />
+            </MudPaper>
+
+            <MudPaper Class="p-3">
+                <CompanyMembers Members="company.Members" OnChange="HandleRefreshMembers" />
+            </MudPaper>
+
+            <MudPaper Class="p-3">
+                <InviteTabs Invites="company.Invites" OnChange="HandleRefreshInvites" />
+                <AuthorizeView Roles="@nameof(Role.Admin)">
+                    <MudButton Size="Size.Small"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.PersonAdd"
+                               Href="company/invite">
+                        Invite New User
+                    </MudButton>
+                </AuthorizeView>
+            </MudPaper>
+        </div>
+    }
+
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private CompanyDTO? company;
+
+    bool loading = true;
+
+    private static readonly List<BreadcrumbItem> breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Company", href: null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true;
+
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        try
+        {
+            company = await CompanyService.GetCompanyAsync(userInfo!);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+
+        loading = false;
+    }
+
+    private async Task HandleUpdateCompany(CompanyDTO updatedCompany)
+    {
+        if (userInfo?.IsInRole(Role.Admin) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await CompanyService.UpdateCompanyAsync(updatedCompany, userInfo);
+            company = await CompanyService.GetCompanyAsync(userInfo);
+
+            Snackbar.Add("Changes saved", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to update company details", Severity.Error);
+        }
+    }
+
+    private async Task HandleRefreshMembers()
+    {
+        if (company is null || userInfo is null) return;
+
+        try
+        {
+            company.Members = [.. await CompanyService.GetUsersAsync(userInfo)];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to fetch company members", Severity.Error);
+        }
+    }
+
+    private async Task HandleRefreshInvites()
+    {
+        if (company is null || userInfo is null) return;
+
+        try
+        {
+            company.Invites = [.. await InviteService.GetInvitesAsync(userInfo)];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            Snackbar.Add("Failed to fetch latest invites", Severity.Error);
+        }
+    }
+
+}

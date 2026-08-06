@@ -1,3 +1,4 @@
+using ApexCharts;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 using MudBlazor.Services;
@@ -14,6 +15,8 @@ builder.Services.AddScoped(sp => new HttpClient {
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) 
 });
 
+builder.Services.AddApexCharts();
+
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomLeft;
@@ -22,5 +25,7 @@ builder.Services.AddMudServices(config =>
 builder.Services.AddScoped<IProjectDTOService, WASMProjectDTOService>();
 builder.Services.AddScoped<ICompanyDTOService, WASMCompanyDTOService>();
 builder.Services.AddScoped<ITicketDTOService, WASMTicketDTOService>();
+builder.Services.AddScoped<IInviteDTOService, WASMInviteDTOService>();
+builder.Services.AddScoped<INotificationDTOService, WASMNotificationDTOService>();
 
 await builder.Build().RunAsync();

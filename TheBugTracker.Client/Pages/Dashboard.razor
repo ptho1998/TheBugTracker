@@ -1,0 +1,323 @@
+﻿@page "/dashboard"
+@attribute [Authorize]
+@inject ICompanyDTOService CompanyService
+@inject ISnackbar Snackbar
+
+<PageTitle>Dashboard | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="h-100">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading your dashboard ... " />
+    }
+    else if (data is null)
+    {
+        <div class="d-flex h-100 justify-content-center align-items-center">
+            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                Something went wrong loading your dashboard
+            </MudText>
+        </div>
+    }
+    else
+    {
+       <div class="vstack gap-3">
+            @* total projects / total tickets / open tickets / closed tickets *@
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <MudPaper Class="p-3 h-100 vstack gap-2 align-items-center">
+                        <MudText Typo="Typo.h6" Align="Align.Center">
+                            Total Projects
+                        </MudText>
+                        <MudChip T="int" Label="true" Color="Color.Primary" Style="min-width: 6rem; margin-top: auto;">
+                            <MudText Typo="Typo.h5">
+                                @data.TotalProjectCount
+                            </MudText>
+                        </MudChip>
+                    </MudPaper>
+                </div>
+                <div class="col-6 col-md-3">
+                    <MudPaper Class="p-3 h-100 vstack gap-2 align-items-center">
+                        <MudText Typo="Typo.h6" Align="Align.Center">
+                            Total Tickets
+                        </MudText>
+                        <MudChip T="int" Label="true" Color="Color.Primary" Style="min-width: 6rem; margin-top: auto;">
+                            <MudText Typo="Typo.h5">
+                                @data.TotalTicketCount
+                            </MudText>
+                        </MudChip>
+                    </MudPaper>
+                </div>
+                <div class="col-6 col-md-3">
+                    <MudPaper Class="p-3 h-100 vstack gap-2 align-items-center">
+                        <MudText Typo="Typo.h6" Align="Align.Center">
+                            Open Tickets
+                        </MudText>
+                        <MudChip T="int" Label="true" Color="Color.Info" Style="min-width: 6rem; margin-top: auto;">
+                            <MudText Typo="Typo.h5">
+                                @data.OpenTicketCount
+                            </MudText>
+                        </MudChip>
+                    </MudPaper>
+                </div>
+                <div class="col-6 col-md-3">
+                    <MudPaper Class="p-3 h-100 vstack gap-2 align-items-center">
+                        <MudText Typo="Typo.h6" Align="Align.Center">
+                            Resolved Tickets
+                        </MudText>
+                        <MudChip T="int" Label="true" Color="Color.Success" Style="min-width: 6rem; margin-top: auto;">
+                            <MudText Typo="Typo.h5">
+                                @data.ResolvedTicketCount
+                            </MudText>
+                        </MudChip>
+                    </MudPaper>
+                </div>
+            </div>
+
+            @* table of recent ticket activity *@
+            <MudPaper Class="p-3">
+                <MudText Typo="Typo.h6" GutterBottom>
+                    Recently Updated Tickets
+                </MudText>
+                <MudSimpleTable Dense Elevation="0">
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Status</th>
+                            <th>Developer</th>
+                            <th>Type</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (TicketDTO ticket in data.RecentlyUpdatedTickets)
+                        {
+                            <tr>
+                                <td>
+                                    <MudLink Href="@($"tickets/{ticket.Id}")" Typo="Typo.inherit">
+                                        @ticket.Title
+                                    </MudLink>
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="ticket.Status.GetColor()">
+                                        @ticket.Status.GetDisplayName()
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    @if (ticket.DeveloperUser is not null)
+                                    {
+                                        <UserChip User="ticket.DeveloperUser" />
+                                    }
+                                    else
+                                    {
+                                        <text>Unassigned</text>
+                                    }
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="ticket.Type.GetColor()">
+                                        @ticket.Type.GetDisplayName()
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    @ticket.LastModified.ToString("g")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+
+            @* chart: tickets over time  / chart: tickets by priority *@
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <MudPaper Class="p-3 h-100">
+                        <MudText Typo="Typo.h6" GutterBottom>
+                            Tickets Over Time
+                        </MudText>
+
+                        <ApexCharts.ApexChart TItem="MonthlyTickets">
+                            <ApexCharts.ApexPointSeries Items="data.TicketsOverTime.OrderBy(mt => mt.Month)"
+                                         YValue="mt => mt.Count"
+                                         XValue="@(mt => mt.Month.ToString("MMM yyyy"))"
+                                         Name="Submitted Tickets"
+                                         SeriesType="ApexCharts.SeriesType.Area" />
+
+                            <ApexCharts.ApexPointSeries Items="data.ResolvedOverTime.OrderBy(mt => mt.Month)"
+                                         YValue="mt => mt.Count"
+                                         XValue="@(mt => mt.Month.ToString("MMM yyyy"))"
+                                         Name="Resolved Tickets"
+                                         SeriesType="ApexCharts.SeriesType.Area" />
+                        </ApexCharts.ApexChart>
+                    </MudPaper>
+
+                </div>
+                <div class="col-12 col-md-6">
+                    <MudPaper Class="p-3">
+                        <MudText Typo="Typo.h6" GutterBottom>
+                            Tickets by Priority
+                        </MudText>
+
+                        <ApexCharts.ApexChart TItem="TicketPriorityCount">
+                            <ApexCharts.ApexPointSeries Items="data.TicketsByPriority.OrderBy(tpc => tpc.Priority)"
+                                                        XValue="tpc => tpc.Priority.GetDisplayName()"
+                                                        YValue="tpc => tpc.Count"
+                                                        Name="Tickets"
+                                                        SeriesType="ApexCharts.SeriesType.Bar"
+                                                        PointColor="@(tpc => $"var(--mud-palette-{tpc.Priority.GetColor()})".ToLower())" />
+                        </ApexCharts.ApexChart>
+                    </MudPaper>
+                </div>
+            </div>
+
+            @* table: upcoming project deadlines / chart: projects by priority *@
+            <div class="row g-3">
+                <div class="col-12 col-md-6 col-lg-7 col-xl-8">
+                    <MudPaper Class="p-3 h-100">
+                        <MudText Typo="Typo.h6" GutterBottom>
+                            Recent & Upcoming Deadlines
+                        </MudText>
+                        <MudSimpleTable Dense Elevation="0">
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (ProjectDTO project in data.RecentDeadlines)
+                                {
+                                    <tr>
+                                        <td>
+                                            <MudLink Typo="Typo.inherit" Href="@($"projects/{project.Id}")">
+                                                @project.Name
+                                            </MudLink>
+                                        </td>
+                                        <td>@project.StartDate?.ToString("d")</td>
+                                        <td class="@(project.EndDate < DateTimeOffset.UtcNow ? "mud-error-text fw-bold" : "")">
+                                            @project.EndDate?.ToString("d")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </MudPaper>
+                </div>
+                <div class="col-12 col-md-6 col-lg-5 col-xl-4">
+                    <MudPaper Class="p-3 h-100 vstack">
+                                <MudText Typo="Typo.h6" GutterBottom>
+                        Projects by Priority
+                    </MudText>
+                    <div class="my-auto">
+                            <ApexCharts.ApexChart TItem="ProjectPriorityCount">
+                                <ApexCharts.ApexPointSeries Items="data.ProjectsByPriority.OrderBy(ppc => ppc.Priority)"
+                                                            XValue="ppc => ppc.Priority.GetDisplayName()"
+                                                            YValue="ppc => ppc.Count"
+                                                            SeriesType="ApexCharts.SeriesType.Pie"
+                                                            Name="Projects"
+                                                            PointColor="@(ppc => $"var(--mud-palette-{ppc.Priority.GetColor()})".ToLower())" />
+                            </ApexCharts.ApexChart>
+                    </div>
+
+
+                    </MudPaper>
+                </div>
+            </div>
+
+            @* chart: tickets by status  / chart: tickets by project *@
+            <div class="row g-3">
+                <div class="col-12 col-md-6 col-xl-5">
+                    <MudPaper Class="p-3 h-100 vstack">
+                        <MudText Typo="Typo.h6" GutterBottom>
+                            Tickets by Status
+                        </MudText>
+
+                        <div class="my-auto">
+                            <ApexCharts.ApexChart TItem="TicketStatusCount">
+                                <ApexCharts.ApexPointSeries Items="data.TicketsByStatus"
+                                                            XValue="tsc => tsc.Status.GetDisplayName()"
+                                                            YValue="tsc => tsc.Count"
+                                                            SeriesType="ApexCharts.SeriesType.Donut"
+                                                            Name="Tickets"
+                                                            PointColor="@(tsc => $"var(--mud-palette-{tsc.Status.GetColor()})".ToLower())" />
+                            </ApexCharts.ApexChart>
+                        </div>
+
+                    </MudPaper>
+                </div>
+                <div class="col-12 col-md-6 col-xl-7">
+                    <MudPaper Class="p-3 h-100">
+                        <MudText Typo="Typo.h6" GutterBottom>
+                            Tickets by Project
+                        </MudText>
+
+                        <ApexCharts.ApexChart TItem="ProjectTicketCount"
+                                              Options="ticketsByProjectOptions">
+                            <ApexCharts.ApexPointSeries Items="data.TicketsByProject"
+                                                        XValue="ptc => ptc.ProjectName"
+                                                        YValue="ptc => ptc.Count"
+                                                        Name="Tickets"
+                                                        SeriesType="ApexCharts.SeriesType.Bar" />
+                        </ApexCharts.ApexChart>
+                    </MudPaper>
+                </div>
+            </div>
+
+       </div>
+    }
+
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private static readonly List<BreadcrumbItem> breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Dashboard", href: null, disabled: true)
+    };
+
+    private static ApexCharts.ApexChartOptions<ProjectTicketCount> ticketsByProjectOptions = new()
+    {
+        Xaxis = new ApexCharts.XAxis()
+        {
+            Labels = new ApexCharts.XAxisLabels()
+            {
+                Trim = true,
+                Rotate = 0,
+                HideOverlappingLabels = false,
+            }
+        }
+    };
+
+    private bool loading = true;
+
+    private DashboardDTO? data;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+            try
+            {
+                data = await CompanyService.GetDashboardDataAsync(userInfo!);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to load dashboard data", Severity.Error);
+            }
+
+            loading = false;
+
+            StateHasChanged();
+        }
+
+    }
+}

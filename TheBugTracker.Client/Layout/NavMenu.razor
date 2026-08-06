@@ -64,6 +64,11 @@
                             UserAttributes="@(new () {["onclick"] = "logoutForm.submit()"})">
                     Logout
                 </MudNavLink>
+                <form action="Account/Logout" method="post" id="logoutForm" class="d-none">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                </form>
+
             </Authorized>
             <NotAuthorized>
                 <MudNavLink Href="/account/login" Icon="@Icons.Material.Filled.Login">
@@ -76,11 +81,6 @@
         </AuthorizeView>
     </MudNavGroup>
 </MudNavMenu>
-
-<form action="Account/Logout" method="post" id="logoutForm" class="d-none">
-    <AntiforgeryToken />
-    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-</form>
 
 @code {
     private string? currentUrl;

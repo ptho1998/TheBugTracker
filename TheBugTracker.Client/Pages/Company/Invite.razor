@@ -1,0 +1,165 @@
+﻿@page "/company/invite"
+@attribute [Authorize(Roles = nameof(Role.Admin))]
+@inject IProjectDTOService ProjectService
+@inject IInviteDTOService InviteService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Invite User | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    <MudPaper Class="p-3">
+        <MudText Typo="Typo.h6" GutterBottom>Invite a New User</MudText>
+        <MudText Typo="Typo.body2" GutterBottom>
+            To invite a new user to collaborate on your company's projects,
+            enter their information below. After submitting this form, they
+            will be sent an email with a registration link to allow them access
+            to create a new account and join your company.
+        </MudText>
+        <MudDivider Light DividerType="DividerType.FullWidth" Class="my-3" />
+        <EditForm Model="invite" 
+                  class="vstack gap-3"
+                  OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            @* first name / last name *@
+            <div class="row row-cols-1 row-cols-md-2">
+                <div class="col">
+                    <MudTextField @bind-Value="invite.InviteeFirstName"
+                                  For="() => invite.InviteeFirstName"
+                                  Variant="Variant.Outlined"
+                                  Label="First Name"
+                                  OnlyValidateIfDirty/>
+                </div>
+                <div class="col">
+                    <MudTextField @bind-Value="invite.InviteeLastName"
+                                  For="() => invite.InviteeLastName"
+                                  Variant="Variant.Outlined"
+                                  Label="Last Name"
+                                  OnlyValidateIfDirty />
+                </div>
+            </div>
+
+            @* email *@
+            <MudTextField @bind-Value="invite.InviteeEmail"
+                          For="() => invite.InviteeEmail"
+                          Variant="Variant.Outlined"
+                          Label="Email Address" 
+                          OnlyValidateIfDirty />
+
+            @* project(id) *@
+            <MudSelect @bind-Value="invite.ProjectId"
+                       For="() => invite.ProjectId"
+                       Variant="Variant.Outlined"
+                       Label="Project"
+                       Placeholder="Select a Project">
+                @foreach (ProjectDTO project in projects)
+                {
+                    <MudSelectItem T="int?" Value="@project.Id">
+                        @project.Name
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            @* message *@
+            <MudTextField @bind-Value="invite.Message"
+                          For="() => invite.Message"
+                          Variant="Variant.Outlined"
+                          Label="Message (optional)"
+                          Lines="4"
+                          Sizing="InputSizing.Auto"
+                          MaxLines="8" />
+
+            <div class="d-flex justify-content-between">
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Href="company">
+                    Back to Company
+                </MudButton>
+
+                <MudButton Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           Variant="Variant.Filled"
+                           ButtonType="ButtonType.Submit">
+                    Send Invite
+                </MudButton>
+            </div>
+
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private static readonly List<BreadcrumbItem> breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Company", href: "/company"),
+        new BreadcrumbItem("Invite User", href: null, disabled: true)
+    };
+
+    private InviteDTO invite = new();
+
+    private IEnumerable<ProjectDTO> projects = [];
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        try
+        {
+            projects = await ProjectService.GetProjectAsync(userInfo!);
+        } 
+        catch (Exception ex)
+        {
+            Console.Write(ex);
+            Snackbar.Add("Failed to load projects", Severity.Error);
+        }
+
+
+        invite.InviteDate = DateTimeOffset.Now;
+        invite.InvitorId = userInfo!.UserId;
+    }
+
+    private async Task HandleSubmit()
+    {
+        bool created = false;
+        bool sent = false;
+
+        try
+        {
+            InviteDTO createdInvite = await InviteService.CreateInviteAsync(invite, userInfo!);
+            created = true;
+
+            sent = await InviteService.SendInviteAsync(new Uri(Nav.BaseUri), createdInvite.Id, userInfo!);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+
+        if (sent)
+        {
+            Snackbar.Add("Invite sent!", Severity.Success);
+        }
+        else if (created)
+        {
+            Snackbar.Add("Your invite was created, but could not be sent at this time", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add("An error occurred creating this invite", Severity.Error);
+        }
+
+        if (sent || created)
+        {
+            Nav.NavigateTo("/company");
+        }
+    }
+}

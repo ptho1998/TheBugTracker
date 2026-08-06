@@ -1,0 +1,36 @@
+﻿<MudTimeline TimelinePosition="TimelinePosition.Alternate">
+    @foreach (TicketHistoryDTO entry in History.OrderByDescending(h => h.Created))
+    {
+        <MudTimelineItem>
+            <ItemContent>
+                <MudCard>
+                    <MudCardHeader>
+                        <div class="hstack gap-2">
+                            <MudAvatar>
+                                <MudImage Src="@entry.User?.ImageUrl" />
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.h6" Style="line-height: 1em">
+                                    @entry.User?.FullName
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="line-height: 1em">
+                                    @entry.Created.ToString("g")
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardHeader>
+                    <MudCardContent Class="pt-0">
+                        <MudText Typo="Typo.body1">
+                            @entry.Description
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </ItemContent>
+        </MudTimelineItem>
+    }
+</MudTimeline>
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<TicketHistoryDTO> History { get; set; } = [];
+}

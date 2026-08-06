@@ -182,5 +182,36 @@ namespace TheBugTracker.Services
         {
             await repository.DeleteCommentAsync(id, userInfo);
         }
+
+        public async Task<TicketAttachmentDTO> CreateTicketAttachmentAsync(TicketAttachmentDTO attachment,
+                                                                      byte[] fileData,
+                                                                      string contentType,
+                                                                      UserInfo userInfo)
+        {
+            FileUpload upload = new()
+            {
+                Data = fileData,
+                Type = contentType
+            };
+
+            TicketAttachment dbAttachment = new()
+            {
+                Created = DateTimeOffset.UtcNow,
+                Description = attachment.Description,
+                FileName = attachment.FileName,
+                TicketId = attachment.TicketId,
+                UserId = userInfo.UserId,
+                Upload = upload
+            };
+
+            dbAttachment = await repository.CreateTicketAttachmentAsync(dbAttachment, userInfo);
+
+            return dbAttachment.ToDTO();
+        }
+
+        public async Task DeleteTicketAttachmentAsync(int id, UserInfo userInfo)
+        {
+            await repository.DeleteTicketAttachmentAsync(id, userInfo);
+        }
     }
 }

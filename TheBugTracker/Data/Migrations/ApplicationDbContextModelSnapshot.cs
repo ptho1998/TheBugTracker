@@ -334,11 +334,11 @@ namespace TheBugTracker.Data.Migrations
                     b.Property<DateTimeOffset>("InviteDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("InviteEmail")
+                    b.Property<string>("InviteeEmail")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("InviteeFistName")
+                    b.Property<string>("InviteeFirstName")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -392,7 +392,11 @@ namespace TheBugTracker.Data.Migrations
                     b.Property<bool>("HasBeenViewed")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("ProjectId")
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ProjectId")
                         .HasColumnType("integer");
 
                     b.Property<string>("RecipientId")
@@ -806,9 +810,7 @@ namespace TheBugTracker.Data.Migrations
                 {
                     b.HasOne("TheBugTracker.Models.Project", "Project")
                         .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ProjectId");
 
                     b.HasOne("TheBugTracker.Models.ApplicationUser", "Recipient")
                         .WithMany()

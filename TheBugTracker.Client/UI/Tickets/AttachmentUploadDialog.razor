@@ -1,0 +1,141 @@
+﻿<MudDialog>
+    <DialogContent>
+        <div style="min-height: 360px;" class="d-flex flex-column">
+            <MudFileUpload T="IBrowserFile"
+                           @ref="uploadControl"
+                           FilesChanged="HandleFileChanged"
+                           MaximumFileCount="1"
+                           DragAndDrop="true"
+                           @bind-Dragging="_dragging"
+                           @bind-Dragging:after="ClearDragClass">
+                <CustomContent Context="fileUpload">
+                    <MudPaper Height="280px"
+                              Outlined="true"
+                              Class="@_dragClass"
+                              @onclick="fileUpload.OpenFilePickerAsync"
+                              @ondragenter="SetDragClass">
+                        @if (selectedFile is null)
+                        {
+                            <div class="d-flex flex-column align-items-center justify-center" style="height: 100%;">
+                                <MudIcon Icon="@Icons.Material.Filled.CloudUpload"
+                                         Size="Size.Large"
+                                         Class="mb-2" />
+                                <MudText Typo="Typo.h6">
+                                    Drag a file here or click to browse
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                                    Only one file allowed
+                                </MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column align-items-center justify-center" style="height: 100%;">
+                                <MudCard>
+                                    @{
+                                        string? extension = Path.GetExtension(selectedFile.Name)?.Trim('.');
+                                        if (string.IsNullOrEmpty(extension)) extension = "default";
+                                    }
+                                    <MudCardMedia Image="@($"images/png/{extension}.png")"
+                                                  Height="96"
+                                                  Style="background-size: contain; border: 8px inset transparent;" />
+                                    <MudCardContent>
+                                        <div class="text-center">
+                                            <MudText Typo="Typo.subtitle1">
+                                                @selectedFile.Name
+                                            </MudText>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                                <div @onclick:stopPropagation="true">
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Error"
+                                               StartIcon="@Icons.Material.Filled.Close"
+                                               OnClick="ClearFile"
+                                               Class="mt-2">
+                                        Remove
+                                    </MudButton>
+                                </div>
+                            </div>
+                        }
+                    </MudPaper>
+                </CustomContent>
+                <SelectedTemplate />
+            </MudFileUpload>
+
+            <MudTextField Variant="Variant.Outlined"
+                          Label="Description"
+                          Class="mt-3"
+                          @bind-Value="description" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Upload"
+                   Disabled="selectedFile is null"
+                   OnClick="Submit">
+            Upload
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private const string DefaultDragClass =
+        "d-flex flex-column rounded-lg border-2 border-dashed pa-4 mud-width-full cursor-pointer";
+
+    private MudFileUpload<IBrowserFile>? uploadControl;
+    private IBrowserFile? selectedFile;
+    private string? description;
+
+    private string _dragClass = DefaultDragClass;
+    private bool _dragging = false;
+
+    private void HandleFileChanged(IBrowserFile? file)
+    {
+        selectedFile = file;
+    }
+
+    private async Task ClearFile()
+    {
+        selectedFile = null;
+
+        if (uploadControl is not null)
+        {
+            await uploadControl.ClearAsync();
+        }
+    }
+
+    private void SetDragClass()
+    {
+        _dragClass = $"{DefaultDragClass} mud-border-success";
+        _dragging = true;
+    }
+
+    private void ClearDragClass()
+    {
+        if (!_dragging)
+        {
+            _dragClass = DefaultDragClass;
+        }
+    }
+
+    private void Submit()
+    {
+        if (selectedFile is null)
+        {
+            return; // nothing selected yet; keep the dialog open
+        }
+
+        MudDialog.Close(DialogResult.Ok(
+            new AttachmentUploadResult(selectedFile, description)));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public record AttachmentUploadResult(IBrowserFile File, string? Description);
+}

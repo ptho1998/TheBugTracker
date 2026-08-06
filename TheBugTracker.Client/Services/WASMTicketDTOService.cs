@@ -35,9 +35,48 @@ namespace TheBugTracker.Client.Services
             return createdTicket;
         }
 
+        public async Task<TicketAttachmentDTO> CreateTicketAttachmentAsync(TicketAttachmentDTO attachment, byte[] fileData, string contentType, UserInfo userInfo)
+        {
+            using var formData = new MultipartFormDataContent();
+            //formData.Headers.ContentDisposition = new("form-data");
+
+            using var fileContent = new ByteArrayContent(fileData);
+            fileContent.Headers.ContentType = new(contentType);
+
+            // file part name "file" matches [FromForm(Name = "file")] on the server
+            formData.Add(fileContent, "file", attachment.FileName ?? string.Empty);
+
+            formData.Add(new StringContent(attachment.FileName ?? string.Empty), nameof(attachment.FileName));
+            formData.Add(new StringContent(attachment.Description ?? string.Empty), nameof(attachment.Description));
+            formData.Add(new StringContent(attachment.Created.ToString("o")), nameof(attachment.Created));
+            formData.Add(new StringContent(attachment.UserId ?? string.Empty), nameof(attachment.UserId));
+            formData.Add(new StringContent(attachment.TicketId.ToString()), nameof(attachment.TicketId));
+            formData.Add(new StringContent("/api/attachments"), nameof(attachment.AttachmentUrl));
+
+            using var response = await http.PostAsync($"api/tickets/{attachment.TicketId}/attachments", formData);
+            response.EnsureSuccessStatusCode();
+            //if (!response.IsSuccessStatusCode)
+            //{
+            //    string error = await response.Content.ReadAsStringAsync();
+            //    Console.WriteLine($"Upload failed ({(int)response.StatusCode}): {error}");
+            //    throw new HttpRequestException($"Upload failed: {response.StatusCode} - {error}");
+            //}
+
+            var newAttachment = await response.Content.ReadFromJsonAsync<TicketAttachmentDTO>()
+                ?? throw new HttpIOException(HttpRequestError.InvalidResponse);
+
+            return newAttachment;
+        }
+
         public async Task DeleteCommentAsync(int id, UserInfo userInfo)
         {
             var response = await http.DeleteAsync($"api/Tickets/comments/{id}");
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task DeleteTicketAttachmentAsync(int id, UserInfo userInfo)
+        {
+            var response = await http.DeleteAsync($"api/Tickets/attachments/{id}");
             response.EnsureSuccessStatusCode();
         }
 

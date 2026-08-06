@@ -1,0 +1,69 @@
+﻿@inherits LayoutComponentBase
+
+@* Required *@
+<MudThemeProvider Theme="MainLayout.Theme" />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <a href="/">
+                <img src="images/THEBUGTRACKERMARKORG.png" height="50" />
+            </a>
+            <div>
+                <AuthorizeView>
+                    <Authorized>
+                        @* TODO: link to /dashboard *@
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Dashboard"
+                                   Href="/dashboard"
+                                   Color="Color.Inherit">
+                            Dashboard
+                        </MudButton>
+                        <form action="Account/Logout" method="post" id="logoutForm" class="d-inline">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="" />
+
+                            <MudButton Variant="Variant.Text"
+                                       StartIcon="@Icons.Material.Filled.Logout"
+                                       ButtonType="ButtonType.Submit"
+                                       Color="Color.Inherit">
+                                Logout
+                            </MudButton>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   Href="Account/Login"
+                                   Color="Color.Inherit">
+                            Login
+                        </MudButton>
+                        <MudButton Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   Href="Account/Register"
+                                   Color="Color.Inherit">
+                            Register
+                        </MudButton>
+                    </NotAuthorized>
+                </AuthorizeView>
+
+            </div>
+        </div>
+    </MudAppBar>
+    <MudMainContent Class="h-100 d-flex flex-column">
+        <main class="flex-grow-1 pb-3">
+            @Body
+        </main>
+
+        <Footer />
+
+        <div id="blazor-error-ui" data-nosnippet>
+            An unhandled error has occurred.
+            <a href="." class="reload">Reload</a>
+            <span class="dismiss">🗙</span>
+        </div>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+}

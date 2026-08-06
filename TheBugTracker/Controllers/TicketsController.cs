@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using TheBugTracker.Client.Helpers;
 using TheBugTracker.Client.Models;
 using TheBugTracker.Client.Models.Enums;
 using TheBugTracker.Client.Services.Interfaces;
 using TheBugTracker.Client.UserInfoHelper;
+using TheBugTracker.Helpers;
 using static MudBlazor.CategoryTypes;
 
 namespace TheBugTracker.Controllers
@@ -224,5 +226,77 @@ namespace TheBugTracker.Controllers
             return NoContent();
         }
 
+
+        /// <summary>
+        /// Upload Ticket Attachment
+        /// </summary>
+        /// <param name="ticketId">The ID of the ticket</param>
+        /// <param name="file">The file to attach</param>
+        /// <param name="attachment">The attachment's metadata</param>
+        /// <remarks>
+        /// Uploads a new file attachment to the specified ticket, if
+        /// the user is authorized to do so. Users may only upload an attachment
+        /// to a ticket when they are one of the following:
+        /// - The assigned developer or submitter
+        /// - The ticket's assigned Project Manager
+        /// - An admin belonging to the ticket's company
+        /// </remarks>
+        [HttpPost("{ticketId:int}/attachments"), Tags("Ticket Attachments")]
+        public async Task<ActionResult<TicketAttachmentDTO>> CreateAttachment([FromRoute] int ticketId,
+                                                                              [FromForm(Name = "file")] IFormFile file,
+                                                                              [FromForm] TicketAttachmentDTO attachment)
+        {
+            if (attachment.TicketId != ticketId || file.Length > BrowserFileHelper.MaxFileSize)
+            {
+                return BadRequest();
+            }
+
+            try
+            {
+                attachment.UserId = UserInfo.UserId;
+                attachment.Created = DateTimeOffset.UtcNow;
+                attachment.FileName = file.FileName;
+
+                var upload = await UploadHelper.GetFileUploadAsync(file);
+
+                TicketAttachmentDTO? createdAttachment = await ticketService.CreateTicketAttachmentAsync(
+                        attachment, upload.Data!, upload.Type!, UserInfo);
+
+                return Ok(createdAttachment);
+            }
+            catch (IOException ioException)
+            {
+                Console.WriteLine(ioException);
+                return BadRequest(ioException.Message);
+            }
+            catch (ApplicationException appException)
+            {
+                Console.WriteLine(appException);
+                return BadRequest("Invalid ticket ID");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return Problem();
+            }
+
+        }
+
+        /// <summary>
+        /// Delete Ticket Attachment
+        /// </summary>
+        /// <param name="id">The ID of the attachment to delete</param>
+        /// <remarks>
+        /// Deletes a specific ticket attachment, if the user is authorized
+        /// to do so. To delete an attachment, the user must be either
+        /// the attachment's owner or an admin of the attachment's company
+        /// </remarks>
+        [HttpDelete("attachments/{id:int}"), Tags("Ticket Attachments")]
+        public async Task<IActionResult> DeleteAttachment([FromRoute] int id)
+        {
+            await ticketService.DeleteTicketAttachmentAsync(id, UserInfo);
+
+            return NoContent();
+        }
     }
 }

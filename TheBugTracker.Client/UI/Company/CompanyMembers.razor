@@ -1,0 +1,184 @@
+﻿@inject ICompanyDTOService CompanyService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h6">Members</MudText>
+
+@if (!editing)
+{
+    <div class="vstack gap-3">
+        @foreach (Role role in Enum.GetValues<Role>())
+        {
+            // skip the DemoUser role
+            if (role == Role.DemoUser) continue;
+
+            IEnumerable<UserDTO> usersInRole = Members.Where(m => m.Role == role)
+                                                      .OrderBy(m => m.LastName)
+                                                      .ThenBy(m => m.FirstName);
+
+            <div>
+                <MudText Typo="Typo.overline" GutterBottom>
+                    @role.GetDisplayName()
+                </MudText>
+                <div class="d-flex flex-wrap">
+                    @if (usersInRole.Any())
+                    {
+                        foreach (UserDTO user in usersInRole)
+                        {
+                            <UserChip User="user" />
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.overline" Class="my-3">
+                            No @(role.GetDisplayName())s
+                        </MudText>
+                    }
+                </div>
+            </div>
+        }
+
+
+        <AuthorizeView Roles="@nameof(Role.Admin)">
+            <MudButton Class="me-auto"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Settings"
+                       OnClick="() => editing = true">
+                Manage Roles
+            </MudButton>
+        </AuthorizeView>
+    </div>
+}
+else
+{
+    <MudDropContainer T="UserDTO"
+                      Items="Members.OrderBy(m => m.LastName).ThenBy(m => m.FirstName)"
+                      ItemsSelector="@((UserDTO user, string zoneId) => user.Role.HasValue && Enum.GetName(user.Role.Value) == zoneId)"
+                      ItemDropped="HandleUserDropped"
+                      CanDropClass="bg-secondary-subtle">
+        <ItemRenderer>
+            <UserChip User="context" />
+        </ItemRenderer>
+        <ChildContent>
+            <div class="vstack gap-3">
+                @foreach (Role role in Enum.GetValues<Role>())
+                {
+                    // skip the DemoUser role
+                    if (role == Role.DemoUser) continue;
+
+                    IEnumerable<UserDTO> usersInRole = Members.Where(m => m.Role == role);
+
+                    <div>
+                        <MudText Typo="Typo.overline" GutterBottom>
+                            @role.GetDisplayName()
+                        </MudText>
+                        <MudDropZone T="UserDTO"
+                                     Identifier="@Enum.GetName(role)"
+                                     Class="d-flex flex-wrap rounded-3">
+                            @if (!usersInRole.Any())
+                            {
+                                <MudText Typo="Typo.overline" Class="my-3">
+                                    No @(role.GetDisplayName())s
+                                </MudText>
+                            }
+                        </MudDropZone>
+                    </div>
+                }
+            </div>
+        </ChildContent>
+    </MudDropContainer>
+
+    <MudText Typo="Typo.subtitle1" GutterBottom Class="mt-3">
+        Drag and drop to assign users a role
+    </MudText>
+
+    <div class="hstack gap-2">
+        <MudButton Size="Size.Small"
+                    StartIcon="@Icons.Material.Filled.Cancel"
+                    Variant="Variant.Outlined"
+                    OnClick="HandleCancelChanges">
+            Cancel
+        </MudButton>
+        <MudButton Size="Size.Small"
+                    Color="Color.Primary"
+                    StartIcon="@Icons.Material.Filled.Save"
+                    Variant="Variant.Filled"
+                    OnClick="HandleSaveChanges">
+            Save Changes
+        </MudButton>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<UserDTO> Members { get; set; } = [];
+
+    [Parameter]
+    public EventCallback OnChange { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private bool editing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+    }
+
+    private void HandleUserDropped(MudItemDropInfo<UserDTO> dropEvent)
+    {
+        if (dropEvent.Item is not null 
+            && Enum.TryParse<Role>(dropEvent.DropzoneIdentifier, out Role dropZoneRole))
+        {
+            dropEvent.Item.Role = dropZoneRole;
+        }
+    }
+
+    private async Task HandleCancelChanges()
+    {
+        await OnChange.InvokeAsync();
+        editing = false;
+    }
+
+    private async Task HandleSaveChanges()
+    {
+        if (userInfo?.IsInRole(Role.Admin) == true)
+        {
+            try
+            {
+                var currentMembers = await CompanyService.GetUsersAsync(userInfo);
+
+                // for each user, check if their role changed
+                foreach (UserDTO member in Members)
+                {
+                    if (member.Id == userInfo.UserId)
+                    {
+                        continue;
+                    }
+
+                    var currentRole = currentMembers.FirstOrDefault(u => u.Id == member.Id)?.Role;
+
+                    if (currentRole.HasValue && member.Role.HasValue && currentRole != member.Role)
+                    {
+                        // if it has, assign them a new role
+                        await CompanyService.AssignUserRole(member.Id, member.Role.Value, userInfo);
+                    }
+                }
+
+                Snackbar.Add("Update role successfully!", Severity.Success);
+            } 
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("An error occurred updating user roles. Some changes may not have been saved.", Severity.Error);
+            }
+
+        }
+
+        editing = false;
+        await OnChange.InvokeAsync();
+    }
+}

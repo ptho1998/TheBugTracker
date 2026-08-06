@@ -124,6 +124,9 @@
 </MudContainer>
 
 @code {
+    [SupplyParameterFromQuery(Name = "project")]
+    public int? ProjectId { get; set; }
+
     [CascadingParameter]
     public Task<AuthenticationState> AuthStateTask { get; set; } = default!;
 
@@ -141,7 +144,7 @@
     private IEnumerable<UserDTO> developers = [];
     bool canUserAssignTicket = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         userInfo = await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
 
@@ -152,6 +155,17 @@
         try
         {
             projects = await ProjectService.GetProjectAsync(userInfo);
+
+            if (ProjectId.HasValue)
+            {
+                bool projectExists = projects.Any(p => p.Id == ProjectId.Value);
+
+                if (projectExists)
+                {
+                    ticket.ProjectId = ProjectId.Value;
+                    await HandleProjectChange();
+                }
+            }
         }
         catch(Exception ex)
         {

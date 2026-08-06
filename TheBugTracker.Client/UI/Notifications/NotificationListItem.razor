@@ -1,0 +1,76 @@
+﻿
+@if (Notification is not null)
+{
+    <MudListItem T="string"
+                 Icon="@icon"
+                 IconColor="@color"
+                 OnClick="HandleView">
+        <div class="d-flex flex-column gap-2 flex-md-row">
+            <div class="flex-grow-1">
+                <NotificationDetails Notification="Notification" />
+            </div>
+            <div class="hstack gap-2 flex-shrink-0">
+                <MudButton Size="Size.Small"
+                           Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Visibility"
+                           OnClick="HandleView">
+                    View
+                </MudButton>
+                <MudButton Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.MarkChatRead"
+                           OnClick="HandleMarkAsRead"
+                           Disabled="@Notification.HasBeenViewed">
+                    Mark as Read
+                </MudButton>
+            </div>
+        </div>
+    </MudListItem>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public NotificationDTO? Notification { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnView { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnRead { get; set; }
+
+    private Color color = Color.Inherit;
+
+    private string icon = Icons.Material.Filled.CircleNotifications;
+
+    protected override void OnParametersSet()
+    {
+        if (Notification is null)
+        {
+            return;
+        }
+
+        (icon, color) = Notification.Type switch
+        {
+            NotificationType.Company => (Icons.Material.Filled.Business, Color.Primary),
+            NotificationType.Project => (Icons.Material.Filled.Folder, Color.Info),
+            NotificationType.Ticket => (Icons.Material.Filled.Assignment, Color.Success),
+            _ => (Icons.Material.Filled.CircleNotifications, Color.Inherit)
+        };
+    }
+
+    private async Task HandleView()
+    {
+        if (Notification is not null)
+        {
+            await OnView.InvokeAsync(Notification.Id);
+        }
+    }
+
+    private async Task HandleMarkAsRead()
+    {
+        if (Notification is not null)
+        {
+            await OnRead.InvokeAsync(Notification.Id);
+        }
+    }
+}

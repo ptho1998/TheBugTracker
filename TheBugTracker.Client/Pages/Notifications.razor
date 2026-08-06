@@ -1,0 +1,350 @@
+﻿@page "/notifications"
+@attribute [Authorize]
+@inject INotificationDTOService NotificationService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Notifications | The Bug Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="h-100">
+    <MudBreadcrumbs Items="breadcrumbs" />
+
+    @if (loading)
+    {
+        <LoadingSpinner Message="Loading notifications ... " />
+    }
+    else if (!notifications.Any())
+    {
+        <div class="d-flex justify-content-center align-items-center">
+            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                No Notifications Yet
+            </MudText>
+        </div>
+    }
+    else
+    {
+        <MudPaper>
+            <MudTabs>
+                <MudTabPanel Text="All">
+                    <MudList T="string" Dense>
+                        <MudToolBar Dense>
+                            <MudButton Class="ms-auto"
+                                       StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                       Size="Size.Small"
+                                       OnClick="() => HandleReadAllNotifications()"
+                                       Disabled="unreadCount < 1">
+                                Mark All As Read
+                            </MudButton>
+                        </MudToolBar>
+                        <MudDivider Light />
+                        @foreach (NotificationDTO notification in notifications.OrderByDescending(n => n.Created))
+                        {
+                            <NotificationListItem @key="notification.Id"
+                                                  Notification="notification" 
+                                                  OnView="ViewNotification" 
+                                                  OnRead="MarkNotificationAsRead" />
+                            <MudDivider Light DividerType="DividerType.Inset" />
+                        }
+                    </MudList>
+                </MudTabPanel>
+                <MudTabPanel Text="Unread"
+                             BadgeData="unreadCount > 0 ? unreadCount : null"
+                             BadgeColor="Color.Error">
+                    @if (!unreadNotifications.Any())
+                    {
+                        <div class="d-flex justify-content-center align-items-center p-5">
+                            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                                No Unread Notifications
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudList T="string" Dense>
+                            <MudToolBar Dense>
+                                <MudButton Class="ms-auto"
+                                           StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                           Size="Size.Small"
+                                           OnClick="() => HandleReadAllNotifications()"
+                                           Disabled="unreadCount < 1">
+                                    Mark All As Read
+                                </MudButton>
+                            </MudToolBar>
+                            <MudDivider Light />
+                            @foreach (NotificationDTO notification in unreadNotifications.OrderByDescending(n => n.Created))
+                            {
+                                <NotificationListItem @key="notification.Id"
+                                                      Notification="notification"
+                                                      OnView="ViewNotification"
+                                                      OnRead="MarkNotificationAsRead" />
+                                <MudDivider Light DividerType="DividerType.Inset" />
+                            }
+                        </MudList>
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Projects" 
+                             BadgeData="unreadProjectCount > 0 ? unreadProjectCount : null"
+                             BadgeColor="Color.Error">
+                    @if (!projectNotifications.Any())
+                    {
+                        <div class="d-flex justify-content-center align-items-center p-5">
+                            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                                No Project Notifications
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudList T="string" Dense>
+                            <MudToolBar Dense>
+                                <MudButton Class="ms-auto"
+                                           StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                           Size="Size.Small"
+                                           OnClick="() => HandleReadAllNotifications(NotificationType.Project)"
+                                           Disabled="unreadProjectCount < 1">
+                                    Mark All As Read
+                                </MudButton>
+                            </MudToolBar>
+                            <MudDivider Light />
+                            @foreach (IGrouping<int, NotificationDTO> group in projectNotifications.GroupBy(n => n.ProjectId ?? 0))
+                            {
+                                ProjectDTO? project = group.FirstOrDefault()?.Project;
+                                int groupUnreadCount = group.Count(n => !n.HasBeenViewed);
+
+                                <MudListItem Expanded>
+                                    <ChildContent>
+                                        <div class="hstack gap-3">
+                                            <MudText Typo="Typo.h6">@(project?.Name ?? "Unknown")</MudText>
+                                            <MudBadge Color="Color.Error" 
+                                                      Content="groupUnreadCount" 
+                                                      Visible="groupUnreadCount > 0" 
+                                                      Origin="Origin.CenterCenter"/>
+                                        </div>
+                                        
+                                    </ChildContent>
+                                    <NestedList>
+                                        @foreach (NotificationDTO notification in group.OrderByDescending(n => n.Created))
+                                        {
+                                            <NotificationListItem @key="notification.Id"
+                                                                  Notification="notification"
+                                                                  OnView="ViewNotification"
+                                                                  OnRead="MarkNotificationAsRead" />
+
+                                            <MudDivider Light DividerType="DividerType.Inset" />
+                                        }
+                                    </NestedList>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Tickets"
+                             BadgeData="unreadTicketCount > 0 ? unreadTicketCount : null"
+                             BadgeColor="Color.Error">
+                    @if (!ticketNotifications.Any())
+                    {
+                        <div class="d-flex justify-content-center align-items-center p-5">
+                            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                                No Ticket Notifications
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudList T="string" Dense>
+                            <MudToolBar Dense>
+                                <MudButton Class="ms-auto"
+                                           StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                           Size="Size.Small"
+                                           OnClick="() => HandleReadAllNotifications(NotificationType.Ticket)"
+                                           Disabled="unreadTicketCount < 1">
+                                    Mark All As Read
+                                </MudButton>
+                            </MudToolBar>
+                            <MudDivider Light />
+                            @foreach (IGrouping<int, NotificationDTO> group in ticketNotifications.GroupBy(n => n.TicketId ?? 0))
+                            {
+                                TicketDTO? ticket = group.First().Ticket;
+                                int ticketUnreadCount = group.Count(n => !n.HasBeenViewed);
+
+                                <MudListItem Expanded>
+                                    <ChildContent>
+                                        <div class="hstack gap-3">
+                                            <MudText Typo="Typo.h6">@(ticket?.Title ?? "Unknown Ticket")</MudText>
+                                            <MudBadge Content="ticketUnreadCount"
+                                                      Color="Color.Error"
+                                                      Visible="ticketUnreadCount > 0"
+                                                      Origin="Origin.CenterCenter" />
+                                        </div>
+                                    </ChildContent>
+                                    <NestedList>
+                                        @foreach (NotificationDTO notification in group.OrderByDescending(n => n.Created))
+                                        {
+                                            <NotificationListItem @key="notification.Id"
+                                                                  Notification="notification"
+                                                                  OnView="ViewNotification"
+                                                                  OnRead="MarkNotificationAsRead" />
+
+                                            <MudDivider Light DividerType="DividerType.Inset" />
+                                        }
+                                    </NestedList>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Company"
+                             BadgeData="unreadCompanyCount > 0 ? unreadCompanyCount : null"
+                             BadgeColor="Color.Error">
+                    @if (!companyNotifications.Any())
+                    {
+                        <div class="d-flex justify-content-center align-items-center p-5">
+                            <MudText Typo="Typo.button" Color="Color.Tertiary">
+                                No Company Notifications
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudList T="string" Dense>
+                            <MudToolBar Dense>
+                                <MudButton Class="ms-auto"
+                                           StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                           Size="Size.Small"
+                                           OnClick="() => HandleReadAllNotifications(NotificationType.Company)"
+                                           Disabled="unreadCompanyCount < 1">
+                                    Mark All as Read
+                                </MudButton>
+                            </MudToolBar>
+                            <MudDivider Light />
+                            @foreach (NotificationDTO notification in companyNotifications.OrderByDescending(n => n.Created))
+                            {
+                                <NotificationListItem Notification="notification"
+                                                      OnRead="MarkNotificationAsRead"
+                                                      OnView="ViewNotification" />
+
+                                <MudDivider Light DividerType="DividerType.Inset" />
+                            }
+                        </MudList>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
+    }
+</MudContainer>
+
+    @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private UserInfo? userInfo;
+
+    private static readonly List<BreadcrumbItem> breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Notifications", href: null, disabled: true)
+    };
+
+    private bool loading = true;
+
+    private int unreadCount;
+    private int unreadProjectCount;
+    private int unreadTicketCount;
+    private int unreadCompanyCount;
+
+    private IEnumerable<NotificationDTO> notifications = [];
+    private IEnumerable<NotificationDTO> unreadNotifications = [];
+    private IEnumerable<NotificationDTO> projectNotifications = [];
+    private IEnumerable<NotificationDTO> ticketNotifications = [];
+    private IEnumerable<NotificationDTO> companyNotifications = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshNotifications();
+        loading = false;
+    }
+
+    private async Task RefreshNotifications()
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is not null)
+        {
+            try
+            {
+                notifications = await NotificationService.GetAllNotificationsAsync(userInfo);
+
+                unreadNotifications = notifications.Where(n => !n.HasBeenViewed);
+                projectNotifications = notifications.Where(n => n.Type == NotificationType.Project);
+                ticketNotifications = notifications.Where(n => n.Type == NotificationType.Ticket);
+                companyNotifications = notifications.Where(n => n.Type == NotificationType.Company);
+
+                unreadCount = unreadNotifications.Count();
+                unreadProjectCount = projectNotifications.Count(n => !n.HasBeenViewed);
+                unreadTicketCount = ticketNotifications.Count(n => !n.HasBeenViewed);
+                unreadCompanyCount = companyNotifications.Count(n => !n.HasBeenViewed);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to load notifications", Severity.Error);
+            }
+        }
+    }
+
+    private async Task MarkNotificationAsRead(int id)
+    {
+        if (userInfo is not null)
+        {
+            try
+            {
+                await NotificationService.MarkNotificationAsReadAsync(id, userInfo);
+                await RefreshNotifications();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to mark notification as read", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ViewNotification(int id)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == id);
+
+        if (notification is not null && userInfo is not null)
+        {
+            await MarkNotificationAsRead(id);
+
+            string url = notification.Type switch
+            {
+                NotificationType.Company => "company",
+                NotificationType.Project => $"projects/{notification.ProjectId}",
+                NotificationType.Ticket => $"tickets/{notification.TicketId}",
+                _ => "notifications"
+            };
+
+            Nav.NavigateTo(url);
+        }
+    }
+
+    private async Task HandleReadAllNotifications(NotificationType? type = null)
+    {
+        userInfo ??= await UserInfoHelper.GetUserInfoAsync(AuthStateTask);
+
+        if (userInfo is not null)
+        {
+            try
+            {
+                await NotificationService.MarkAllNotificationsAsReadAsync(userInfo, type);
+                await RefreshNotifications();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Snackbar.Add("Failed to mark notifications as read");
+            }
+        }
+    }
+}

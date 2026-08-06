@@ -1,37 +1,98 @@
-﻿.pageStyle {
-    background: url(images/LandingPageBG.png);
-    background-repeat: no-repeat;
-    background-position: center;
+﻿#hero {
+    background-image: url(images/BTHeroImage2.jpg);
     background-size: cover;
+    background-position: center center;
+    min-height: calc(100vh - var(--mud-appbar-height));
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
 }
 
-.title {
-    font-family: var(--cf-title-font);
-    font-size: 3rem;
-    color: var(--cf-title-color);
-    line-height: 3rem;
+#hero::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    backdrop-filter: blur(1px) hue-rotate(-15deg);
+    --dark: rgba(0, 0, 0, 0.8);
+    background: linear-gradient( to bottom, var(--dark), var(--dark) 1%, transparent 25%, transparent 75%, var(--dark) 99%, var(--dark) );
 }
 
-.subTitle {
-    font-size: 1rem;
-    font-family: var(--cf-body-font);
+::deep#hero>.mud-container {
+    position: relative;
+    z-index: 2;
+    flex-grow: 1;
 }
 
-.devicons {
-    font-size: 2rem;
+#logo {
+    max-width: 100%;
+    max-height: 200px;
 }
 
-@media (min-width: 992px) {
-    .title {
-        font-size: 3.5rem;
-        line-height: 3rem;
+#cta {
+    font-size: 1.5rem;
+    font-weight: lighter;
+}
+
+::deep#cta a {
+    font-size: 1.5rem;
+}
+
+#scroll-next {
+    position: relative;
+    z-index: 2;
+    padding: 2rem;
+}
+
+::deep #scroll-next svg {
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.15s ease-in;
+}
+
+    ::deep #scroll-next svg:hover {
+        color: rgba(255, 255, 255, 1);
     }
 
-    .subTitle {
-        font-size: 1.5rem;
+section {
+    padding: 6rem 0;
+}
+
+    section:nth-child(even) {
+        background-color: var(--mud-palette-primary-hover);
     }
 
-    .devicons {
-        font-size: 2.5rem;
+::deep .feature {
+    padding: 1rem;
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+}
+
+::deep .feature:nth-child(even) {
+    flex-direction: row-reverse;
+}
+
+::deep .feature .description {
+    flex-grow: 1;
+}
+
+::deep .feature .description {
+    flex-grow: 1;
+}
+
+::deep .feature .screenshot {
+    width: auto;
+    max-height: 240px;
+    max-width: 100%;
+    border-radius: var(--mud-default-borderradius);
+    box-shadow: var(--mud-elevation-4);
+}
+
+@media (max-width: 768px) {
+    ::deep .feature,
+    ::deep .feature:nth-child(even) {
+        flex-direction: column;
+        align-items: center
     }
 }
